@@ -132,6 +132,54 @@ def test_source_controls_toggle_pi_and_file_inputs():
     assert file_style["display"] == "block"
 
 
+def test_interval_dropdown_is_available_for_pi_and_hidden_with_file_controls():
+    controls = viewer.layout.children[2].children[0].children[3]
+    interval = next(
+        child for child in controls.children if getattr(child, "id", None) == "interval"
+    )
+
+    assert [option["value"] for option in interval.options] == [
+        "1m",
+        "5m",
+        "10m",
+        "30m",
+        "1h",
+    ]
+    assert interval.value == "1m"
+    assert viewer.update_source_controls("file")[0]["display"] == "none"
+
+
+def test_pi_query_passes_selected_interval_to_reader(monkeypatch):
+    frame = pd.DataFrame(
+        {"TAG_A": [1.0]},
+        index=pd.date_range("2024-01-01", periods=1, freq="min"),
+    )
+    calls = []
+
+    def fake_read(*args):
+        calls.append(args)
+        return frame
+
+    monkeypatch.setattr(viewer, "read_pi_data", fake_read)
+
+    viewer.update_viewer(
+        1,
+        "TAG_A",
+        "2024-01-01 00:00:00",
+        "2024-01-01 00:01:00",
+        interval="10m",
+    )
+
+    assert calls == [
+        (
+            ["TAG_A"],
+            "2024-01-01 00:00:00",
+            "2024-01-01 00:01:00",
+            "10m",
+        )
+    ]
+
+
 def test_graphics_modules_do_not_read_from_pi():
     project_root = Path(__file__).resolve().parents[1]
     paths = [

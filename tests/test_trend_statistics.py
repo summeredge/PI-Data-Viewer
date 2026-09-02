@@ -1,8 +1,9 @@
+import numpy as np
 import pandas as pd
 import pytest
 
-from backend.statistics import calculate_statistics
-from charts.trend import create_trend_figure
+from backend.statistics import calculate_series_summary, calculate_statistics
+from charts.trend import create_distribution_figure, create_trend_figure
 from pages import viewer
 
 
@@ -47,6 +48,33 @@ def test_calculate_statistics_contains_required_values_without_changing_frame():
     assert statistics.loc["TAG_A", "min"] == 1.0
     assert statistics.loc["TAG_A", "max"] == 3.0
     pd.testing.assert_frame_equal(frame, original)
+
+
+def test_calculate_series_summary_matches_dataproject_trend_stats():
+    series = pd.Series([1.0, 2.0, 3.0, np.nan, np.inf, -np.inf])
+
+    summary = calculate_series_summary(series)
+
+    assert summary["count"] == 3
+    assert summary["ratio"] == pytest.approx(0.5)
+    assert summary["mean"] == 2.0
+    assert summary["std"] == pytest.approx(np.sqrt(2 / 3))
+    assert summary["min"] == 1.0
+    assert summary["max"] == 3.0
+    assert summary["range"] == 2.0
+    assert summary["median"] == 2.0
+
+
+def test_distribution_figure_handles_empty_constant_and_curve_cases():
+    empty = create_distribution_figure([], "#176b87")
+    constant = create_distribution_figure([2.0, 2.0], "#176b87")
+    varied = create_distribution_figure([1.0, 2.0, 3.0, 4.0], "#176b87")
+
+    assert len(empty.data) == 0
+    assert empty.layout.annotations[0].text == "无有效数据"
+    assert [trace.type for trace in constant.data] == ["bar"]
+    assert [trace.type for trace in varied.data] == ["bar", "scatter"]
+    assert varied.data[1].line.color == "#176b87"
 
 
 def test_parse_tags_rejects_more_than_eight_tags():
@@ -108,6 +136,23 @@ def test_selected_view_updates_trend_and_statistics_without_reading_again():
     assert [trace.name for trace in figure.data] == ["A", "C"]
     assert [record["Tag"] for record in records] == ["A", "C"]
     assert status == ""
+
+
+def test_statistics_cards_follow_selected_columns_and_include_distribution():
+    frame = pd.DataFrame(
+        {"A": [1.0, 2.0, 3.0], "B": [10.0, 20.0, 30.0], "C": [4.0, 4.0, 4.0]},
+        index=pd.date_range("2024-01-01", periods=3, freq="min"),
+    )
+
+    cards = viewer._statistics_cards(frame, ["A", "C"])
+
+    assert len(cards) == 2
+    assert [card.children[0].children for card in cards] == ["A", "C"]
+    labels = [row.children[0].children for row in cards[0].children[1].children]
+    values = [row.children[1].children for row in cards[0].children[1].children]
+    assert labels == ["均值", "标准差", "最大值", "最小值", "极差", "中位数", "有效点数/占比"]
+    assert values == ["2", "0.8165", "3", "1", "2", "2", "3 / 100.0%"]
+    assert cards[0].children[3].figure.data[0].type == "bar"
 
 
 def test_clear_data_callback_clears_store_and_selection(monkeypatch):

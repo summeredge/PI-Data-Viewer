@@ -15,12 +15,13 @@ namespace PIReader
         public string TagsPath { get; private set; }
         public string StartTime { get; private set; }
         public string EndTime { get; private set; }
+        public string Interval { get; private set; }
 
         public static ReaderOptions Parse(string[] args)
         {
             if (args == null || args.Length == 0)
             {
-                throw new ArgumentException("Usage: PIReader.exe --config config.txt --tags tags.txt --start \"...\" --end \"...\"");
+                throw new ArgumentException("Usage: PIReader.exe --config config.txt --tags tags.txt --start \"...\" --end \"...\" --interval 1m");
             }
 
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -32,7 +33,7 @@ namespace PIReader
                 }
 
                 var option = args[index].ToLowerInvariant();
-                if (option != "--config" && option != "--tags" && option != "--start" && option != "--end")
+                if (option != "--config" && option != "--tags" && option != "--start" && option != "--end" && option != "--interval")
                 {
                     throw new ArgumentException("Unknown option: " + args[index]);
                 }
@@ -45,7 +46,8 @@ namespace PIReader
                 ConfigPath = Required(values, "--config"),
                 TagsPath = Required(values, "--tags"),
                 StartTime = Required(values, "--start"),
-                EndTime = Required(values, "--end")
+                EndTime = Required(values, "--end"),
+                Interval = Required(values, "--interval")
             };
         }
 
@@ -247,11 +249,11 @@ namespace PIReader
         private readonly Server _server;
         private readonly string _interval;
 
-        public PiSdkReader(IDictionary<string, string> config)
+        public PiSdkReader(IDictionary<string, string> config, string interval)
         {
             _sdk = new PISDKClass();
             _server = _sdk.Servers[config["Server"]];
-            _interval = config["Interval"];
+            _interval = interval;
 
             var user = config["User"];
             var password = config["Password"];
@@ -310,7 +312,7 @@ namespace PIReader
                 var tags = ReaderProtocol.ReadTags(options.TagsPath);
                 var samplesByTag = new Dictionary<string, List<PiSample>>(StringComparer.OrdinalIgnoreCase);
 
-                using (var reader = new PiSdkReader(config))
+                using (var reader = new PiSdkReader(config, options.Interval))
                 {
                     foreach (var tag in tags)
                     {

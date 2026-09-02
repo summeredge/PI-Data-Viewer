@@ -16,12 +16,15 @@ _EXE_ENV = "PI_READER_EXE"
 _PI_READER_EXE = "PIReader.exe"
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 MAX_TAGS = 8
+INTERVAL_OPTIONS = ("1m", "5m", "10m", "30m", "1h")
 
 
-def read_pi_data(tags, start_time, end_time) -> pd.DataFrame:
+def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
     """Return PI historical data as a pandas DataFrame."""
 
     normalized_tags = normalize_tags(tags)
+    if interval not in INTERVAL_OPTIONS:
+        raise ValueError(f"interval must be one of: {', '.join(INTERVAL_OPTIONS)}")
     start = _format_time(start_time, "start_time")
     end = _format_time(end_time, "end_time")
     if end <= start:
@@ -45,6 +48,8 @@ def read_pi_data(tags, start_time, end_time) -> pd.DataFrame:
                 start,
                 "--end",
                 end,
+                "--interval",
+                interval,
             ],
             cwd=workdir,
             capture_output=True,
