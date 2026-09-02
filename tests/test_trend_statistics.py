@@ -155,8 +155,9 @@ def test_statistics_cards_follow_selected_columns_and_include_distribution():
     assert cards[0].children[3].figure.data[0].type == "bar"
 
 
-def test_clear_data_callback_clears_store_and_selection(monkeypatch):
-    viewer.store_dataframe(pd.DataFrame({"A": [1.0]}))
+def test_clear_data_callback_clears_selection_without_removing_store(monkeypatch):
+    frame = pd.DataFrame({"A": [1.0], "B": [2.0]})
+    viewer.store_dataframe(frame)
     monkeypatch.setattr(viewer, "_triggered_id", lambda: "clear-data-button")
 
     state, selected = viewer.update_data_state(
@@ -170,7 +171,10 @@ def test_clear_data_callback_clears_store_and_selection(monkeypatch):
         upload_filename=None,
     )
 
-    assert viewer.get_dataframe() is None
-    assert state["options"] == []
-    assert state["ready"] is False
+    assert viewer.get_dataframe() is frame
+    assert state["options"] == [
+        {"label": "A", "value": "A"},
+        {"label": "B", "value": "B"},
+    ]
+    assert state["ready"] is True
     assert selected == []

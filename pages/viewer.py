@@ -7,7 +7,7 @@ import math
 import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html
 
-from backend.dataframe_store import clear_dataframe, get_dataframe, store_dataframe
+from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.file_reader import read_local_file
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
 from backend.statistics import calculate_series_summary, calculate_statistics
@@ -373,8 +373,11 @@ def update_data_state(
     interval="1m",
 ):
     if _triggered_id() == "clear-data-button":
-        clear_dataframe()
-        return _viewer_state([], "数据已清空", False), []
+        current = get_dataframe()
+        if current is None or current.empty:
+            return _viewer_state([], "尚未加载数据", False), []
+        options, _, _ = _variable_selection_state(current, [])
+        return _viewer_state(options, "请至少选择一个变量", True), []
 
     status, options, selected, ready = _load_viewer(
         n_clicks,
@@ -479,7 +482,7 @@ layout = html.Div(
                             labelStyle={"display": "block"},
                             inputStyle={"marginRight": "0.4rem"},
                         ),
-                        html.Button("清空数据", id="clear-data-button", n_clicks=0),
+                        html.Button("清空选择", id="clear-data-button", n_clicks=0),
                         html.Div(id="query-status", role="status", **{"aria-live": "polite"}),
                     ],
                     style={
