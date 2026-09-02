@@ -13,5 +13,10 @@ def store_dataframe(df: pd.DataFrame) -> None:
     _dataframe = df
 
 
+def clear_dataframe() -> None:
+    global _dataframe
+    _dataframe = None
+
+
 def get_dataframe() -> pd.DataFrame | None:
     return _dataframe
