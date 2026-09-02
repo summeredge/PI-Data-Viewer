@@ -269,13 +269,11 @@ namespace PIReader
             endTime.InputString = endTimeText;
 
             PIPoint point = _server.PIPoints[tag];
-            PIValues values = point.Data.InterpolatedValues2(
-                startTime,
-                endTime,
-                _interval,
-                string.Empty,
-                FilteredViewConstants.fvRemoveFiltered,
-                null);
+            IPIData2 data = (IPIData2)point.Data;
+            PIValues values = data.InterpolatedValues2(
+                startTime.LocalDate,
+                endTime.LocalDate,
+                _interval);
 
             var samples = new List<PiSample>();
             foreach (PIValue value in values)
