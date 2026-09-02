@@ -15,12 +15,13 @@ _CONFIG_ENV = "PI_CONFIG"
 _EXE_ENV = "PI_READER_EXE"
 _PI_READER_EXE = "PIReader.exe"
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+MAX_TAGS = 8
 
 
 def read_pi_data(tags, start_time, end_time) -> pd.DataFrame:
     """Return PI historical data as a pandas DataFrame."""
 
-    normalized_tags = _normalize_tags(tags)
+    normalized_tags = normalize_tags(tags)
     start = _format_time(start_time, "start_time")
     end = _format_time(end_time, "end_time")
     if end <= start:
@@ -82,6 +83,13 @@ def _normalize_tags(tags) -> list[str]:
             seen.add(key)
     if not normalized:
         raise ValueError("tags must contain at least one tag name")
+    return normalized
+
+
+def normalize_tags(tags) -> list[str]:
+    normalized = _normalize_tags(tags)
+    if len(normalized) > MAX_TAGS:
+        raise ValueError(f"Tag数量不能超过{MAX_TAGS}个")
     return normalized
 
 

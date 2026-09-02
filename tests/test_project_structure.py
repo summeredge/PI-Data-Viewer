@@ -22,6 +22,8 @@ REQUIRED_PATHS = (
     "layout/sidebar.py",
     "layout/tabs.py",
     "layout/dashboard.py",
+    "pages/__init__.py",
+    "pages/viewer.py",
     "export/__init__.py",
     "export/csv_export.py",
     "export/html_report.py",
@@ -41,6 +43,7 @@ def test_module_imports():
         "backend.dataframe_store",
         "charts.trend",
         "charts.scatter",
+        "pages.viewer",
     ):
         assert import_module(module_name)
 

@@ -6,12 +6,15 @@ PI Data Viewer 是用于PI历史数据可视化展示的工程工具。
 
 ## 当前状态
 
-Phase 2.1：
+Phase 3：
 
 - 项目框架完成；
 - Dash页面初始化；
 - 独立 PIReader C# 后端完成；
-- Python PI Reader 适配接口完成。
+- Python PI Reader 适配接口完成；
+- 支持最多 8 个 PI Tag 的时间范围查询；
+- 支持 Plotly 多曲线趋势图和基础统计表；
+- 查询结果通过 `backend/dataframe_store.py` 在趋势图和统计模块之间流转。
 
 当前版本提供基础页面和 PI Reader 适配接口，不在 Viewer 内重复实现 PI SDK 或 PI 连接配置。
 
@@ -70,6 +73,7 @@ PI-Data-Viewer/
 ├── backend/
 ├── charts/
 ├── layout/
+├── pages/
 ├── export/
 ├── tests/
 └── requirements.txt
