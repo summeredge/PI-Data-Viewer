@@ -17,9 +17,9 @@ from charts.trend import create_distribution_figure, create_trend_figure
 _PI_SOURCE = "pi"
 _FILE_SOURCE = "file"
 _MAX_SELECTED_COLUMNS = MAX_TAGS
-_DEFAULT_MAX_PLOT_POINTS = 10_000
+_DEFAULT_MAX_PLOT_POINTS = 45_000
 _MIN_PLOT_POINTS = 100
-_MAX_PLOT_POINTS = 100_000
+_MAX_PLOT_POINTS = 135_000
 _MAX_TOTAL_PLOT_POINTS = 300_000
 _view_revision = 0
 _STAT_COLORS = (
@@ -58,6 +58,7 @@ _FILE_UPLOAD_STYLE = {
     "padding": "1rem",
     "textAlign": "center",
 }
+_TREND_CONTROL_STYLE = {"width": "100%", "height": "38px"}
 
 
 def parse_tags(value: str) -> list[str]:
@@ -658,36 +659,12 @@ layout = html.Div(
                             [
                                 html.Label(
                                     [
-                                        "Y 轴",
-                                        dcc.Dropdown(
-                                            id="trend-axis-mode",
-                                            options=[
-                                                {"label": "同一 Y 轴", "value": "shared"},
-                                                {
-                                                    "label": "独立 Y 轴",
-                                                    "value": "independent",
-                                                },
-                                            ],
-                                            value="shared",
-                                            clearable=False,
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                ),
-                                html.Button(
-                                    "显示趋势",
-                                    id="show-trend-button",
-                                    n_clicks=0,
-                                    disabled=True,
-                                ),
-                                html.Label(
-                                    [
                                         "开始时间",
                                         dcc.Input(
                                             id="trend-start-time",
                                             type="datetime-local",
                                             step=1,
-                                            style={"width": "100%"},
+                                            style=_TREND_CONTROL_STYLE,
                                         ),
                                     ],
                                     style={"display": "grid", "gap": "0.25rem"},
@@ -699,7 +676,7 @@ layout = html.Div(
                                             id="trend-end-time",
                                             type="datetime-local",
                                             step=1,
-                                            style={"width": "100%"},
+                                            style=_TREND_CONTROL_STYLE,
                                         ),
                                     ],
                                     style={"display": "grid", "gap": "0.25rem"},
@@ -714,15 +691,41 @@ layout = html.Div(
                                             max=_MAX_PLOT_POINTS,
                                             step=1,
                                             value=_DEFAULT_MAX_PLOT_POINTS,
-                                            style={"width": "100%"},
+                                            style=_TREND_CONTROL_STYLE,
                                         ),
                                     ],
                                     style={"display": "grid", "gap": "0.25rem"},
                                 ),
+                                html.Label(
+                                    [
+                                        "Y 轴",
+                                        dcc.Dropdown(
+                                            id="trend-axis-mode",
+                                            options=[
+                                                {"label": "同一 Y 轴", "value": "shared"},
+                                                {
+                                                    "label": "独立 Y 轴",
+                                                    "value": "independent",
+                                                },
+                                            ],
+                                            value="shared",
+                                            clearable=False,
+                                            style=_TREND_CONTROL_STYLE,
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                ),
+                                html.Button(
+                                    "显示趋势",
+                                    id="show-trend-button",
+                                    n_clicks=0,
+                                    disabled=True,
+                                    style=_TREND_CONTROL_STYLE,
+                                ),
                             ],
                             style={
                                 "display": "grid",
-                                "gridTemplateColumns": "repeat(4, minmax(120px, 1fr))",
+                                "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
                                 "gap": "0.5rem",
                                 "alignItems": "end",
                             },

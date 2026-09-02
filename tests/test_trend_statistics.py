@@ -200,6 +200,39 @@ def test_trend_time_controls_follow_loaded_frame():
     assert viewer.update_trend_time_controls({"ready": False}) == (None, None)
 
 
+def test_trend_controls_are_compact_and_aligned():
+    trend_controls = viewer.layout.children[2].children[1].children[1]
+
+    control_ids = [
+        *(child.children[1].id for child in trend_controls.children[:4]),
+        trend_controls.children[4].id,
+    ]
+
+    assert control_ids == [
+        "trend-start-time",
+        "trend-end-time",
+        "trend-max-points",
+        "trend-axis-mode",
+        "show-trend-button",
+    ]
+    assert trend_controls.style["gridTemplateColumns"] == "repeat(5, minmax(0, 1fr))"
+    assert all(
+        child.children[1].style["height"] == "38px"
+        for child in trend_controls.children[:4]
+    )
+    assert trend_controls.children[4].style["height"] == "38px"
+
+
+def test_trend_max_points_has_new_default_and_upper_bound():
+    assert viewer._resolve_max_plot_points(None, 1) == 45_000
+    assert viewer._resolve_max_plot_points(45_000, 1) == 45_000
+    assert viewer._resolve_max_plot_points(135_000, 1) == 135_000
+    assert viewer._resolve_max_plot_points(135_001, 1) == 135_000
+    max_points_input = viewer.layout.children[2].children[1].children[1].children[2].children[1]
+    assert max_points_input.value == 45_000
+    assert max_points_input.max == 135_000
+
+
 def test_statistics_cards_follow_selected_columns_and_include_distribution():
     frame = pd.DataFrame(
         {"A": [1.0, 2.0, 3.0], "B": [10.0, 20.0, 30.0], "C": [4.0, 4.0, 4.0]},
