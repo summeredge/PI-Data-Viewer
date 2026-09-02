@@ -6,15 +6,16 @@ PI Data Viewer 是用于PI历史数据可视化展示的工程工具。
 
 ## 当前状态
 
-Phase 3：
+Phase 4：
 
 - 项目框架完成；
 - Dash页面初始化；
 - 独立 PIReader C# 后端完成；
 - Python PI Reader 适配接口完成；
 - 支持最多 8 个 PI Tag 的时间范围查询；
+- 支持 CSV 和 Excel `.xlsx` 本地文件导入；
 - 支持 Plotly 多曲线趋势图和基础统计表；
-- 查询结果通过 `backend/dataframe_store.py` 在趋势图和统计模块之间流转。
+- PI Server 与本地文件都通过 `backend/dataframe_store.py` 在趋势图和统计模块之间流转。
 
 当前版本提供基础页面和 PI Reader 适配接口，不在 Viewer 内重复实现 PI SDK 或 PI 连接配置。
 
@@ -31,7 +32,7 @@ Viewer 每次请求只在临时目录生成 `tags.txt`，并通过 stdout 接收
 
 PIReader 的 C# 项目和无 PI Server 依赖的协议测试分别位于 `PIReader/` 和 `PIReader.Tests/`。项目引用安装环境提供的 `OSIsoft.PISDK`、`OSIsoft.PISDKCommon`、`OSIsoft.PITimeServer` interop，需在 Windows PI SDK 环境中用 .NET Framework/MSBuild 构建。
 
-统一读取接口为 `read_pi_data(tags, start_time, end_time)`，返回以 `DatetimeIndex` 为索引、PI Tag 为列的 pandas DataFrame。
+统一读取结果为以 `DatetimeIndex`（名称为 `Timestamp`）为索引、数值列为变量的 pandas DataFrame。PI Server 使用 `read_pi_data(tags, start_time, end_time)`，本地上传文件使用 `read_local_file(contents, filename)`。
 
 ## 技术栈
 
@@ -39,6 +40,7 @@ PIReader 的 C# 项目和无 PI Server 依赖的协议测试分别位于 `PIRead
 - Dash
 - Plotly
 - pandas
+- openpyxl（`.xlsx` 读取）
 
 ## 运行
 

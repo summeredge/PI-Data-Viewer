@@ -7,6 +7,7 @@ REQUIRED_PATHS = (
     "app.py",
     "config/config.yaml",
     "backend/__init__.py",
+    "backend/file_reader.py",
     "backend/pi_reader.py",
     "backend/dataframe_store.py",
     "backend/statistics.py",
@@ -40,6 +41,7 @@ def test_project_structure():
 def test_module_imports():
     for module_name in (
         "backend.pi_reader",
+        "backend.file_reader",
         "backend.dataframe_store",
         "charts.trend",
         "charts.scatter",
