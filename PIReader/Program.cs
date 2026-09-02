@@ -294,12 +294,7 @@ namespace PIReader
 
         private static string FormatTimestamp(PIValue value)
         {
-            var timestamp = new PITimeFormatClass
-            {
-                FormatString = "yyyy-MM-dd HH:mm:ss",
-                UTCSeconds = value.TimeStamp.UTCSeconds
-            };
-            return timestamp.OutputString;
+            return value.TimeStamp.LocalDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         }
     }
 
