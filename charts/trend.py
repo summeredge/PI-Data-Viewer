@@ -8,7 +8,9 @@ import plotly.graph_objects as go
 
 
 def create_trend_figure(
-    df: pd.DataFrame, selected_columns: list[str] | None = None
+    df: pd.DataFrame,
+    selected_columns: list[str] | None = None,
+    axis_mode: str = "shared",
 ) -> go.Figure:
     """Create an interactive line chart from a time-indexed DataFrame."""
 
@@ -16,6 +18,8 @@ def create_trend_figure(
         raise TypeError("df must be a pandas DataFrame")
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError("df must use a pandas DatetimeIndex")
+    if axis_mode not in {"shared", "independent"}:
+        raise ValueError("axis_mode must be 'shared' or 'independent'")
 
     figure = go.Figure()
     columns = (
@@ -23,29 +27,51 @@ def create_trend_figure(
         if selected_columns is None
         else [column for column in df.columns if column in selected_columns]
     )
-    for column in columns:
-        figure.add_trace(
-            go.Scatter(
-                x=df.index,
-                y=df[column],
-                mode="lines",
-                name=str(column),
-                hovertemplate=(
-                    "%{x|%Y-%m-%d %H:%M:%S}<br>%{y}<extra>%{fullData.name}</extra>"
-                ),
-            )
+    for index, column in enumerate(columns):
+        trace = go.Scatter(
+            x=df.index,
+            y=df[column],
+            mode="lines",
+            name=str(column),
+            hovertemplate=(
+                "%{x|%Y-%m-%d %H:%M:%S}<br>%{y}<extra>%{fullData.name}</extra>"
+            ),
         )
+        if axis_mode == "independent" and index:
+            trace.yaxis = f"y{index + 1}"
+        figure.add_trace(trace)
+
+    xaxis = {
+        "title": "Time",
+        "type": "date",
+        "tickformat": "%Y-%m-%d\n%H:%M:%S",
+        "rangeslider": {"visible": False},
+    }
+    valid_index = df.index.dropna()
+    if len(valid_index):
+        xaxis.update(
+            minallowed=valid_index.min(),
+            maxallowed=valid_index.max(),
+        )
+
+    y_axes = {"yaxis": {"title": "Value", "fixedrange": True}}
+    if axis_mode == "independent":
+        y_axes["yaxis"]["title"] = str(columns[0]) if columns else "Value"
+        for index, column in enumerate(columns[1:], start=2):
+            y_axes[f"yaxis{index}"] = {
+                "title": str(column) if index == 2 else None,
+                "overlaying": "y",
+                "side": "right",
+                "fixedrange": True,
+                "showgrid": False,
+                "showticklabels": index == 2,
+            }
 
     figure.update_layout(
         template="plotly_white",
         hovermode="x unified",
-        xaxis={
-            "title": "Time",
-            "type": "date",
-            "tickformat": "%Y-%m-%d\n%H:%M:%S",
-            "rangeslider": {"visible": False},
-        },
-        yaxis={"title": "Value"},
+        xaxis=xaxis,
+        **y_axes,
         legend={"title": "Tag"},
         margin={"l": 60, "r": 30, "t": 30, "b": 60},
     )

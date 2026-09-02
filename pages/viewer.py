@@ -17,6 +17,10 @@ from charts.trend import create_distribution_figure, create_trend_figure
 _PI_SOURCE = "pi"
 _FILE_SOURCE = "file"
 _MAX_SELECTED_COLUMNS = MAX_TAGS
+_DEFAULT_MAX_PLOT_POINTS = 10_000
+_MIN_PLOT_POINTS = 100
+_MAX_PLOT_POINTS = 100_000
+_MAX_TOTAL_PLOT_POINTS = 300_000
 _view_revision = 0
 _STAT_COLORS = (
     "#176b87",
@@ -93,13 +97,106 @@ def _variable_selection_state(frame: pd.DataFrame, selected_columns=None):
     return options, selected, message
 
 
-def _render_frame(frame: pd.DataFrame, selected_columns: list) -> tuple:
+def _parse_trend_time(value, label: str):
+    if value in (None, ""):
+        return None
+    try:
+        timestamp = pd.Timestamp(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{label}格式无效") from exc
+    if pd.isna(timestamp):
+        raise ValueError(f"{label}格式无效")
+    return timestamp
+
+
+def _resolve_max_plot_points(value, series_count: int) -> int:
+    if value in (None, ""):
+        requested = _DEFAULT_MAX_PLOT_POINTS
+    else:
+        try:
+            requested = int(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("最大绘图点数必须是整数") from exc
+    requested = min(_MAX_PLOT_POINTS, max(_MIN_PLOT_POINTS, requested))
+    per_series_cap = max(
+        _MIN_PLOT_POINTS,
+        _MAX_TOTAL_PLOT_POINTS // max(1, int(series_count)),
+    )
+    return min(requested, per_series_cap)
+
+
+def _prepare_trend_frame(
+    frame: pd.DataFrame,
+    selected_columns,
+    start_time=None,
+    end_time=None,
+    max_points=_DEFAULT_MAX_PLOT_POINTS,
+):
+    selected = _selected_columns(frame, selected_columns)
+    if not selected:
+        raise ValueError("请至少选择一个变量")
+
+    start = _parse_trend_time(start_time, "显示开始时间")
+    end = _parse_trend_time(end_time, "显示结束时间")
+    if start is not None and end is not None and end < start:
+        raise ValueError("显示结束时间不能早于显示开始时间")
+
+    filtered = frame.loc[:, selected]
+    try:
+        if start is not None:
+            filtered = filtered.loc[filtered.index >= start]
+        if end is not None:
+            filtered = filtered.loc[filtered.index <= end]
+    except TypeError as exc:
+        raise ValueError("显示时间与数据时间格式不兼容") from exc
+    if filtered.empty:
+        raise ValueError("图表时间范围内无数据")
+
+    effective_max_points = _resolve_max_plot_points(max_points, len(selected))
+    display = filtered
+    if len(display) > effective_max_points:
+        positions = [
+            int(index * (len(display) - 1) / (effective_max_points - 1))
+            for index in range(effective_max_points)
+        ]
+        display = display.iloc[positions]
+    return selected, filtered, display, effective_max_points
+
+
+def _render_trend_frame(
+    frame: pd.DataFrame,
+    selected_columns,
+    axis_mode="shared",
+    start_time=None,
+    end_time=None,
+    max_points=_DEFAULT_MAX_PLOT_POINTS,
+):
+    selected, full_frame, display_frame, effective_max_points = _prepare_trend_frame(
+        frame,
+        selected_columns,
+        start_time,
+        end_time,
+        max_points,
+    )
+    statistics = calculate_statistics(display_frame.loc[:, selected])
+    return (
+        create_trend_figure(display_frame, selected, axis_mode),
+        _statistics_records(statistics),
+        _statistics_cards(display_frame, selected),
+        f"趋势图已生成，原始 {len(full_frame)} 点，显示 {len(display_frame)} 点，"
+        f"最大点数 {effective_max_points}。",
+    )
+
+
+def _render_frame(
+    frame: pd.DataFrame, selected_columns: list, axis_mode: str = "shared"
+) -> tuple:
     if not selected_columns:
         return _empty_figure(), [], []
     selected_frame = frame.loc[:, selected_columns]
     statistics = calculate_statistics(selected_frame)
     return (
-        create_trend_figure(frame, selected_columns),
+        create_trend_figure(frame, selected_columns, axis_mode),
         _statistics_records(statistics),
         _statistics_cards(frame, selected_columns),
     )
@@ -251,7 +348,7 @@ def _load_viewer(
 ):
     if source == _FILE_SOURCE:
         if not upload_contents:
-            return "请上传 CSV 或 Excel 文件", [], [], False
+            return "", [], [], False
         try:
             frame = read_local_file(upload_contents, upload_filename)
         except Exception as exc:
@@ -361,6 +458,30 @@ def _triggered_id():
     return callback_context.triggered[0]["prop_id"].split(".", 1)[0]
 
 
+def update_trend_time_controls(viewer_state):
+    if not isinstance(viewer_state, dict) or not viewer_state.get("ready"):
+        return None, None
+    current = get_dataframe()
+    if current is None or not isinstance(current.index, pd.DatetimeIndex):
+        return None, None
+    valid_index = current.index.dropna()
+    if not len(valid_index):
+        return None, None
+    return (
+        valid_index.min().strftime("%Y-%m-%dT%H:%M:%S"),
+        valid_index.max().strftime("%Y-%m-%dT%H:%M:%S"),
+    )
+
+
+def update_show_trend_state(viewer_state, selected_columns):
+    return not (
+        isinstance(viewer_state, dict)
+        and viewer_state.get("ready")
+        and isinstance(selected_columns, (list, tuple))
+        and bool(selected_columns)
+    )
+
+
 def update_data_state(
     n_clicks,
     source,
@@ -399,6 +520,37 @@ def render_viewer(viewer_state, selected_columns):
         status = f"最多选择{_MAX_SELECTED_COLUMNS}个变量，已保留前{_MAX_SELECTED_COLUMNS}个变量"
     elif not selected_columns and state.get("ready"):
         status = "请至少选择一个变量"
+    return figure, cards, status
+
+
+def render_trend_view(
+    viewer_state,
+    show_clicks=0,
+    selected_columns=None,
+    axis_mode="shared",
+    start_time=None,
+    end_time=None,
+    max_points=_DEFAULT_MAX_PLOT_POINTS,
+):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if _triggered_id() == "viewer-state" or not show_clicks:
+        return _empty_figure(), [], state.get("status", "")
+    if not state.get("ready"):
+        return _empty_figure(), [], state.get("status", "")
+    current = get_dataframe()
+    if current is None:
+        return _empty_figure(), [], "尚未加载数据"
+    try:
+        figure, _, cards, status = _render_trend_frame(
+            current,
+            selected_columns,
+            axis_mode,
+            start_time,
+            end_time,
+            max_points,
+        )
+    except (TypeError, ValueError) as exc:
+        return _empty_figure(), [], str(exc)
     return figure, cards, status
 
 
@@ -482,7 +634,12 @@ layout = html.Div(
                             labelStyle={"display": "block"},
                             inputStyle={"marginRight": "0.4rem"},
                         ),
-                        html.Button("清空选择", id="clear-data-button", n_clicks=0),
+                        html.Button(
+                            "清空选择",
+                            id="clear-data-button",
+                            n_clicks=0,
+                            style={"width": "100px"},
+                        ),
                         html.Div(id="query-status", role="status", **{"aria-live": "polite"}),
                     ],
                     style={
@@ -497,6 +654,79 @@ layout = html.Div(
                 html.Main(
                     [
                         html.H2("趋势图"),
+                        html.Div(
+                            [
+                                html.Label(
+                                    [
+                                        "Y 轴",
+                                        dcc.Dropdown(
+                                            id="trend-axis-mode",
+                                            options=[
+                                                {"label": "同一 Y 轴", "value": "shared"},
+                                                {
+                                                    "label": "独立 Y 轴",
+                                                    "value": "independent",
+                                                },
+                                            ],
+                                            value="shared",
+                                            clearable=False,
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                ),
+                                html.Button(
+                                    "显示趋势",
+                                    id="show-trend-button",
+                                    n_clicks=0,
+                                    disabled=True,
+                                ),
+                                html.Label(
+                                    [
+                                        "开始时间",
+                                        dcc.Input(
+                                            id="trend-start-time",
+                                            type="datetime-local",
+                                            step=1,
+                                            style={"width": "100%"},
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                ),
+                                html.Label(
+                                    [
+                                        "结束时间",
+                                        dcc.Input(
+                                            id="trend-end-time",
+                                            type="datetime-local",
+                                            step=1,
+                                            style={"width": "100%"},
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                ),
+                                html.Label(
+                                    [
+                                        "最大绘图点数",
+                                        dcc.Input(
+                                            id="trend-max-points",
+                                            type="number",
+                                            min=_MIN_PLOT_POINTS,
+                                            max=_MAX_PLOT_POINTS,
+                                            step=1,
+                                            value=_DEFAULT_MAX_PLOT_POINTS,
+                                            style={"width": "100%"},
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                ),
+                            ],
+                            style={
+                                "display": "grid",
+                                "gridTemplateColumns": "repeat(4, minmax(120px, 1fr))",
+                                "gap": "0.5rem",
+                                "alignItems": "end",
+                            },
+                        ),
                         dcc.Graph(
                             id="trend-graph",
                             config={"displaylogo": False, "scrollZoom": True},
@@ -550,10 +780,29 @@ def register_callbacks(app) -> None:
     )(update_variable_options)
 
     app.callback(
+        Output("trend-start-time", "value"),
+        Output("trend-end-time", "value"),
+        Input("viewer-state", "data"),
+        prevent_initial_call=True,
+    )(update_trend_time_controls)
+
+    app.callback(
+        Output("show-trend-button", "disabled"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        prevent_initial_call=True,
+    )(update_show_trend_state)
+
+    app.callback(
         Output("trend-graph", "figure"),
         Output("statistics-cards", "children"),
         Output("query-status", "children"),
         Input("viewer-state", "data"),
-        Input("variable-selector", "value"),
+        Input("show-trend-button", "n_clicks"),
+        State("variable-selector", "value"),
+        State("trend-axis-mode", "value"),
+        State("trend-start-time", "value"),
+        State("trend-end-time", "value"),
+        State("trend-max-points", "value"),
         prevent_initial_call=True,
-    )(render_viewer)
+    )(render_trend_view)

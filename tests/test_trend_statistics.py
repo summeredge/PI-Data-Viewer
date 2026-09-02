@@ -18,6 +18,9 @@ def test_create_trend_figure_preserves_datetime_index_and_multiple_tags():
     assert [trace.name for trace in figure.data] == ["TAG_A", "TAG_B"]
     assert all(list(trace.x) == list(index) for trace in figure.data)
     assert figure.layout.xaxis.rangeslider.visible is False
+    assert figure.layout.xaxis.minallowed == index[0]
+    assert figure.layout.xaxis.maxallowed == index[-1]
+    assert figure.layout.yaxis.fixedrange is True
 
 
 def test_create_trend_figure_only_draws_selected_columns():
@@ -30,6 +33,21 @@ def test_create_trend_figure_only_draws_selected_columns():
 
     assert [trace.name for trace in figure.data] == ["A", "C"]
     assert list(frame.columns) == ["A", "B", "C"]
+
+
+def test_create_trend_figure_supports_independent_y_axes():
+    frame = pd.DataFrame(
+        {"A": [1.0, 2.0], "B": [10.0, 20.0], "C": [100.0, 200.0]},
+        index=pd.date_range("2024-01-01", periods=2, freq="min"),
+    )
+
+    figure = create_trend_figure(frame, axis_mode="independent")
+
+    assert [trace.yaxis for trace in figure.data] == [None, "y2", "y3"]
+    assert figure.layout.yaxis2.overlaying == "y"
+    assert figure.layout.yaxis2.side == "right"
+    assert figure.layout.yaxis3.showticklabels is False
+    assert figure.layout.yaxis3.fixedrange is True
 
 
 def test_calculate_statistics_contains_required_values_without_changing_frame():
@@ -136,6 +154,50 @@ def test_selected_view_updates_trend_and_statistics_without_reading_again():
     assert [trace.name for trace in figure.data] == ["A", "C"]
     assert [record["Tag"] for record in records] == ["A", "C"]
     assert status == ""
+
+
+def test_render_viewer_waits_for_explicit_show_click_and_limits_points(monkeypatch):
+    frame = pd.DataFrame(
+        {"A": range(150), "B": range(150, 300)},
+        index=pd.date_range("2024-01-01", periods=150, freq="min"),
+    )
+    viewer.store_dataframe(frame)
+    state = {"ready": True, "status": ""}
+
+    monkeypatch.setattr(viewer, "_triggered_id", lambda: "viewer-state")
+    empty_figure, empty_cards, status = viewer.render_trend_view(
+        state, 0, ["A", "B"], "shared", "2024-01-01T00:10", "2024-01-01T02:29", 100
+    )
+
+    assert len(empty_figure.data) == 0
+    assert empty_cards == []
+    assert status == ""
+
+    monkeypatch.setattr(viewer, "_triggered_id", lambda: "show-trend-button")
+    figure, cards, status = viewer.render_trend_view(
+        state, 1, ["A", "B"], "independent", "2024-01-01T00:10", "2024-01-01T02:29", 100
+    )
+
+    assert len(figure.data) == 2
+    assert len(figure.data[0].x) == 100
+    assert figure.data[0].x[0] == frame.index[10]
+    assert figure.data[0].x[-1] == frame.index[-1]
+    assert len(cards) == 2
+    assert "原始 140 点，显示 100 点" in status
+
+
+def test_trend_time_controls_follow_loaded_frame():
+    frame = pd.DataFrame(
+        {"A": [1.0, 2.0]},
+        index=pd.date_range("2024-01-01", periods=2, freq="min"),
+    )
+    viewer.store_dataframe(frame)
+
+    assert viewer.update_trend_time_controls({"ready": True}) == (
+        "2024-01-01T00:00:00",
+        "2024-01-01T00:01:00",
+    )
+    assert viewer.update_trend_time_controls({"ready": False}) == (None, None)
 
 
 def test_statistics_cards_follow_selected_columns_and_include_distribution():
