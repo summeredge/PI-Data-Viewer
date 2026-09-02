@@ -1,0 +1,8 @@
+﻿Server=172.31.0.10
+User=pidemo
+Password=
+StartTime=2026-07-01 00:00:00
+EndTime=2026-07-03 00:00:00
+Interval=1m
+OutputFile=D:\Users\yqshao\Desktop\PIExport2.csv
+BlockDays=3
