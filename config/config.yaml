@@ -1,0 +1,8 @@
+app:
+  name: PI Data Viewer
+  host: 127.0.0.1
+  port: 8050
+
+pi:
+  server: ""
+  username: ""
