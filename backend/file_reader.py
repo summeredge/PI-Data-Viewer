@@ -17,13 +17,25 @@ _CSV_ENCODINGS = ("utf-8", "utf-8-sig", "gb18030", "gbk")
 def read_local_file(contents: str, filename: str) -> pd.DataFrame:
     """Decode a Dash upload and return a standardized numeric DataFrame."""
 
+    print(f"[file_reader] filename={filename!r}")
+    print(
+        f"[file_reader] contents_prefix={contents[:80]!r}"
+        if isinstance(contents, str)
+        else f"[file_reader] contents_prefix={contents!r}"
+    )
+
     suffix = Path(filename).suffix.lower() if isinstance(filename, str) else ""
     if suffix not in _SUPPORTED_EXTENSIONS:
         raise ValueError("不支持的文件类型，仅支持 .csv 和 .xlsx")
 
     raw = _decode_upload(contents)
+    print(f"[file_reader] raw_length={len(raw)}, raw[:100]={raw[:100]!r}")
     try:
         if suffix == ".csv":
+            print(
+                f"[file_reader] before _read_csv: type(raw)={type(raw)}, "
+                f"raw[:100]={raw[:100]!r}"
+            )
             frame = _read_csv(raw)
         else:
             frame = pd.read_excel(BytesIO(raw), sheet_name=0, engine="openpyxl")
