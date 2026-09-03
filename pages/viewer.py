@@ -14,6 +14,7 @@ from backend.statistics import calculate_series_summary, calculate_statistics
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_SCATTER_VARIABLES,
+    calculate_scatter_dimensions,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -624,8 +625,7 @@ def _render_scatter_frame(
         create_scatter_figure(
             display, x_selected, y_selected, max_points=len(display)
         ),
-        f"实际绘图点数 {len(display)} / {len(frame)}；"
-        f"X数量 {len(x_selected)} × Y数量 {len(y_selected)}",
+        "",
     )
 
 
@@ -673,6 +673,26 @@ def update_show_scatter_state(viewer_state):
     return not (
         isinstance(viewer_state, dict) and viewer_state.get("ready")
     )
+
+
+def update_scatter_graph_style(
+    tab_value,
+    x_1=None,
+    x_2=None,
+    x_3=None,
+    y_1=None,
+    y_2=None,
+    y_3=None,
+):
+    width, height = calculate_scatter_dimensions(
+        len(_scatter_columns(y_1, y_2, y_3)),
+        len(_scatter_columns(x_1, x_2, x_3)),
+    )
+    return {
+        "width": f"{width}px",
+        "maxWidth": "100%",
+        "height": f"{height}px",
+    }
 
 
 def update_source_controls(source):
@@ -969,8 +989,13 @@ layout = html.Div(
                                         ),
                                         dcc.Graph(
                                             id="scatter-graph",
+                                            responsive=True,
                                             config={"displaylogo": False, "scrollZoom": False},
-                                            style={"height": "780px"},
+                                            style={
+                                                "width": "420px",
+                                                "maxWidth": "100%",
+                                                "height": "420px",
+                                            },
                                         ),
                                     ],
                                 ),
@@ -1067,6 +1092,17 @@ def register_callbacks(app) -> None:
         Input("viewer-state", "data"),
         prevent_initial_call=True,
     )(update_show_scatter_state)
+
+    app.callback(
+        Output("scatter-graph", "style"),
+        Input("viewer-tabs", "value"),
+        Input("scatter-x-1", "value"),
+        Input("scatter-x-2", "value"),
+        Input("scatter-x-3", "value"),
+        Input("scatter-y-1", "value"),
+        Input("scatter-y-2", "value"),
+        Input("scatter-y-3", "value"),
+    )(update_scatter_graph_style)
 
     app.callback(
         Output("scatter-graph", "figure"),
