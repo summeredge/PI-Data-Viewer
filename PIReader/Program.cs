@@ -21,7 +21,7 @@ namespace PIReader
         {
             if (args == null || args.Length == 0)
             {
-                throw new ArgumentException("Usage: PIReader.exe --config config.txt --tags tags.txt --start \"...\" --end \"...\" --interval 1m");
+                throw new ArgumentException("Usage: PIReader.exe --config config.txt --tags tags.txt (or --tags - for stdin) --start \"...\" --end \"...\" --interval 1m");
             }
 
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -128,14 +128,24 @@ namespace PIReader
 
         public static List<string> ReadTags(string path)
         {
+            if (path == "-")
+            {
+                return ParseTags(Console.In.ReadToEnd().Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None));
+            }
+
             if (!File.Exists(path))
             {
                 throw new FileNotFoundException("Tag file not found.", path);
             }
 
+            return ParseTags(File.ReadAllLines(path, new UTF8Encoding(false)));
+        }
+
+        private static List<string> ParseTags(IEnumerable<string> lines)
+        {
             var tags = new List<string>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var rawLine in File.ReadAllLines(path, new UTF8Encoding(false)))
+            foreach (var rawLine in lines)
             {
                 var tag = rawLine.Trim().TrimStart('\uFEFF');
                 if (tag.Length == 0 || tag.StartsWith("#", StringComparison.Ordinal) || !seen.Add(tag))
@@ -304,6 +314,10 @@ namespace PIReader
     {
         private static int Main(string[] args)
         {
+            Console.InputEncoding = new UTF8Encoding(false);
+            Console.OutputEncoding = new UTF8Encoding(false);
+            Console.SetError(new StreamWriter(Console.OpenStandardError(), Console.OutputEncoding) { AutoFlush = true });
+
             try
             {
                 var options = ReaderOptions.Parse(args);

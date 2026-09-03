@@ -28,7 +28,7 @@ $env:PI_READER_EXE = "C:\path\to\PIReader\PIReader.exe"
 
 `PI_READER_EXE` 未设置时，Viewer 会在 `PI_CONFIG` 所在目录查找 `PIReader.exe`。
 `PI_CONFIG` 指向现有 PIExport 格式的配置文件（`Server/User/Password/Interval/BlockDays`）；Viewer 只保存路径，不复制或写入 PI 密码和 Server 参数。
-Viewer 每次请求只在临时目录生成 `tags.txt`，并通过 stdout 接收 PIReader JSON。
+Viewer 每次请求通过 UTF-8 stdin 传递 Tag，并通过 stdout 接收 PIReader JSON；PIReader 仍兼容直接读取 `tags.txt`。
 
 `PIReader/Program.cs` 是 PIReader 的唯一源码基线；`PIReader/PIReader.exe` 是本地构建产物，不是源码，已不纳入 Git 跟踪。修改 `Program.cs` 后必须在 Windows PI SDK 环境中重新运行 `PIReader\build.bat`。Web PI 模式必须使用与当前源码对应的 `PIReader.exe`；缺少该文件时 `start.bat` 仍可启动 CSV/Excel Viewer，但 PI 模式需要先构建。
 

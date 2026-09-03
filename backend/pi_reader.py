@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -34,36 +33,35 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
     config_path = _config_path()
     executable = _executable_path(config_path)
 
-    with tempfile.TemporaryDirectory(prefix="pi-reader-") as directory:
-        workdir = Path(directory)
-        tags_path = workdir / "tags.txt"
-        tags_path.write_text("\n".join(normalized_tags) + "\n", encoding="utf-8")
-        command = [
-            str(executable),
-            "--config",
-            str(config_path),
-            "--tags",
-            str(tags_path),
-            "--start",
-            start,
-            "--end",
-            end,
-            "--interval",
-            interval,
-        ]
-        try:
-            result = subprocess.run(
-                command,
-                cwd=workdir,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=PI_READER_TIMEOUT_SECONDS,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                "PIReader 查询超时，请缩短时间范围或检查 PI Server 连接"
-            ) from exc
+    tag_input = "\n".join(normalized_tags) + "\n"
+    command = [
+        str(executable),
+        "--config",
+        str(config_path),
+        "--tags",
+        "-",
+        "--start",
+        start,
+        "--end",
+        end,
+        "--interval",
+        interval,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            input=tag_input,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="strict",
+            check=False,
+            timeout=PI_READER_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            "PIReader 查询超时，请缩短时间范围或检查 PI Server 连接"
+        ) from exc
 
     if result.returncode != 0:
         details = "\n".join(

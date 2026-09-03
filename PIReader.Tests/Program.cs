@@ -56,6 +56,16 @@ namespace PIReader.Tests
                 "--end", "2026-01-01 12:00:00"
             }, "--interval");
             ExpectArgumentException(new[] { "--unknown", "value" }, "Unknown option");
+
+            var stdinOptions = ReaderOptions.Parse(new[]
+            {
+                "--config", "config.txt",
+                "--tags", "-",
+                "--start", "2026-01-01 00:00:00",
+                "--end", "2026-01-01 12:00:00",
+                "--interval", "1m"
+            });
+            Assert(stdinOptions.TagsPath == "-", "stdin tags argument was not parsed");
         }
 
         private static void TestConfigAndTagsParsing()
@@ -74,9 +84,22 @@ namespace PIReader.Tests
                 Assert(config["Server"] == "PI-SERVER", "config value was not parsed");
 
                 var tagsPath = Path.Combine(root, "tags.txt");
-                File.WriteAllText(tagsPath, "\uFEFFTAG_A\n# ignored\nTAG_A\nTAG_B\n", new UTF8Encoding(false));
+                var tagContent = "\uFEFFTAG_A\nTAG_A\n# comment\n\nTAG_B\n";
+                File.WriteAllText(tagsPath, tagContent, new UTF8Encoding(false));
                 var tags = ReaderProtocol.ReadTags(tagsPath);
                 Assert(tags.Count == 2 && tags[0] == "TAG_A" && tags[1] == "TAG_B", "tags were not ordered/deduplicated");
+
+                var originalInput = Console.In;
+                try
+                {
+                    Console.SetIn(new StringReader(tagContent));
+                    var stdinTags = ReaderProtocol.ReadTags("-");
+                    Assert(stdinTags.Count == 2 && stdinTags[0] == "TAG_A" && stdinTags[1] == "TAG_B", "stdin tags were not ordered/deduplicated");
+                }
+                finally
+                {
+                    Console.SetIn(originalInput);
+                }
             }
             finally
             {

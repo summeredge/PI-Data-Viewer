@@ -17,14 +17,14 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
     monkeypatch.setenv("PI_CONFIG", str(config_path))
     monkeypatch.setenv("PI_READER_EXE", str(executable))
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout):
+    def fake_run(command, *, input, capture_output, text, encoding, errors, check, timeout):
         assert timeout == pi_reader.PI_READER_TIMEOUT_SECONDS
         assert command == [
             str(executable.resolve()),
             "--config",
             str(config_path.resolve()),
             "--tags",
-            str(Path(cwd) / "tags.txt"),
+            "-",
             "--start",
             "2024-01-01 00:00:00",
             "--end",
@@ -32,10 +32,11 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
             "--interval",
             "5m",
         ]
-        assert (Path(cwd) / "tags.txt").read_text(encoding="utf-8").splitlines() == [
-            "TAG_A",
-            "TAG_B",
-        ]
+        assert input == "TAG_A\nTAG_B\n"
+        assert capture_output is True
+        assert text is True
+        assert encoding == "utf-8"
+        assert errors == "strict"
         return subprocess.CompletedProcess(
             command,
             0,
@@ -66,6 +67,24 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
     assert list(frame.columns) == ["TAG_A", "TAG_B"]
     assert frame.loc[pd.Timestamp("2024-01-01 00:00:00"), "TAG_A"] == 85.2
     assert pd.isna(frame.loc[pd.Timestamp("2024-01-01 00:01:00"), "TAG_A"])
+
+
+def test_pi_reader_production_path_does_not_create_tags_file():
+    source = Path(pi_reader.__file__).read_text(encoding="utf-8")
+
+    assert "tags.txt" not in source
+    assert "TemporaryDirectory" not in source
+    assert "workdir" not in source
+
+
+def test_pi_reader_program_supports_stdin_and_file_tags():
+    source = (Path(__file__).parents[1] / "PIReader" / "Program.cs").read_text(encoding="utf-8")
+
+    assert 'path == "-"' in source
+    assert "Console.In" in source
+    assert "File.ReadAllLines" in source
+    assert "Console.InputEncoding = new UTF8Encoding(false);" in source
+    assert "Console.OutputEncoding = new UTF8Encoding(false);" in source
 
 
 def test_read_pi_data_preserves_columns_for_empty_json(monkeypatch, tmp_path):
