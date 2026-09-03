@@ -554,6 +554,7 @@ def update_data_state(
         end_time,
         source,
         upload_result,
+        selected_columns=[],
         interval=interval,
     )
     return _viewer_state(options, status, ready), selected
@@ -933,7 +934,7 @@ layout = html.Div(
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    className="field-label advanced-field",
+                                                    className="field-label trend-basic-field",
                                                 ),
                                                 html.Label(
                                                     [
@@ -956,7 +957,7 @@ layout = html.Div(
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    className="field-label advanced-field",
+                                                    className="field-label trend-basic-field",
                                                 ),
                                                 html.Button(
                                                     "显示趋势",
@@ -966,16 +967,6 @@ layout = html.Div(
                                                     type="button",
                                                     className="primary-button",
                                                     style=_TREND_CONTROL_STYLE,
-                                                ),
-                                                html.Button(
-                                                    "展开高级参数",
-                                                    id="trend-advanced-toggle",
-                                                    type="button",
-                                                    className="secondary-button advanced-toggle",
-                                                    **{
-                                                        "aria-expanded": "false",
-                                                        "aria-controls": "trend-controls",
-                                                    },
                                                 ),
                                             ],
                                             id="trend-controls",

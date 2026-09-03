@@ -356,10 +356,12 @@ def test_data_source_switch_does_not_reload_data(monkeypatch):
     monkeypatch.setattr(viewer, "read_pi_data", fake_pi)
     monkeypatch.setattr(viewer, "_triggered_id", lambda: triggered[0])
 
-    viewer.update_data_state(
+    state, selected = viewer.update_data_state(
         1, None, 0, "pi", "TAG_A", "2024-01-01", "2024-01-01 00:01"
     )
     assert len(pi_calls) == 1
+    assert state["ready"] is True
+    assert selected == []
 
     triggered[0] = "data-source"
     viewer.update_data_state(
@@ -376,7 +378,7 @@ def test_data_source_switch_does_not_reload_data(monkeypatch):
         1, {"ok": True}, 0, "file", "TAG_A", "2024-01-01", "2024-01-01 00:01"
     )
     assert state["ready"] is True
-    assert selected == ["TAG_A"]
+    assert selected == []
     assert len(pi_calls) == 1
 
 

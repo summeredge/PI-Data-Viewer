@@ -263,6 +263,7 @@ def test_trend_controls_are_compact_and_aligned():
         trend_controls.children[4].id,
     ]
 
+    assert len(trend_controls.children) == 5
     assert control_ids == [
         "trend-start-time",
         "trend-end-time",

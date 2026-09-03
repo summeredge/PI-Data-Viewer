@@ -13,26 +13,10 @@
     container.replaceChildren(input);
   }
 
-  function bindAdvancedToggle() {
-    const toggle = document.getElementById("trend-advanced-toggle");
-    const controls = document.getElementById("trend-controls");
-    if (!toggle || !controls || toggle.dataset.bound) return;
-
-    toggle.dataset.bound = "true";
-    toggle.addEventListener("click", function () {
-      const expanded = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", String(!expanded));
-      controls.classList.toggle("advanced-open", !expanded);
-      toggle.textContent = expanded ? "展开高级参数" : "收起高级参数";
-    });
-  }
-
   function watchLayout() {
     addFileInput();
-    bindAdvancedToggle();
     new MutationObserver(function () {
       addFileInput();
-      bindAdvancedToggle();
     }).observe(document.body, {
       childList: true,
       subtree: true,

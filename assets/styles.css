@@ -402,8 +402,8 @@ textarea:disabled,
 }
 
 .trend-controls {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(140px, auto) minmax(140px, auto) !important;
-  grid-template-areas: "start end action advanced";
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(132px, 0.65fr) minmax(132px, 0.65fr) minmax(140px, 0.75fr) !important;
+  grid-template-areas: "start end max axis action";
   margin-bottom: 20px;
   padding: 12px;
   border: 1px solid var(--border);
@@ -419,36 +419,16 @@ textarea:disabled,
   grid-area: end;
 }
 
-.trend-controls > .advanced-field:nth-child(3) {
+.trend-controls > .trend-basic-field:nth-child(3) {
   grid-area: max;
 }
 
-.trend-controls > .advanced-field:nth-child(4) {
+.trend-controls > .trend-basic-field:nth-child(4) {
   grid-area: axis;
 }
 
 .trend-controls > #show-trend-button {
   grid-area: action;
-}
-
-.trend-controls > #trend-advanced-toggle {
-  grid-area: advanced;
-}
-
-.trend-controls > .advanced-field {
-  display: none;
-}
-
-.trend-controls.advanced-open {
-  grid-template-areas: "start end max axis" "action advanced . .";
-}
-
-.trend-controls.advanced-open > .advanced-field {
-  display: grid;
-}
-
-.advanced-toggle {
-  width: 100%;
 }
 
 .visualization-frame,
@@ -562,11 +542,7 @@ textarea:disabled,
 
   .trend-controls {
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-areas: "start" "end" "action" "advanced";
-  }
-
-  .trend-controls.advanced-open {
-    grid-template-areas: "start" "end" "max" "axis" "action" "advanced";
+    grid-template-areas: "start" "end" "max" "axis" "action";
   }
 
   .statistics-cards {
