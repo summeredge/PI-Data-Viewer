@@ -1,5 +1,125 @@
-"""Placeholder for scatter chart creation."""
+"""Plotly XY scatter-matrix creation."""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
-def create_scatter_chart(df):
-    pass
+MAX_SCATTER_VARIABLES = 3
+DEFAULT_MAX_SCATTER_POINTS = 20_000
+
+
+def _selected_columns(columns, axis_label: str) -> list:
+    if not isinstance(columns, (list, tuple)):
+        raise ValueError(f"请至少选择一个{axis_label}变量")
+
+    selected = [column for column in columns if column not in (None, "")]
+    if not selected:
+        raise ValueError(f"请至少选择一个{axis_label}变量")
+    if len(selected) > MAX_SCATTER_VARIABLES:
+        raise ValueError(f"{axis_label}变量最多选择{MAX_SCATTER_VARIABLES}个")
+    if len(set(selected)) != len(selected):
+        raise ValueError(f"{axis_label}变量不能重复")
+    return selected
+
+
+def _max_points(value) -> int:
+    if value in (None, ""):
+        return DEFAULT_MAX_SCATTER_POINTS
+    try:
+        value = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("最大散点数量必须是正整数") from exc
+    if value < 1:
+        raise ValueError("最大散点数量必须是正整数")
+    return value
+
+
+def prepare_scatter_frame(
+    df: pd.DataFrame,
+    x_columns,
+    y_columns,
+    max_points=DEFAULT_MAX_SCATTER_POINTS,
+) -> tuple[list, list, pd.DataFrame, pd.DataFrame]:
+    """Validate selections, keep finite rows, and deterministically sample them."""
+
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas DataFrame")
+
+    x_selected = _selected_columns(x_columns, "X")
+    y_selected = _selected_columns(y_columns, "Y")
+    missing = [
+        column
+        for column in [*x_selected, *y_selected]
+        if column not in df.columns
+    ]
+    if missing:
+        raise ValueError(f"变量不存在：{', '.join(map(str, missing))}")
+
+    max_points = _max_points(max_points)
+    columns = list(dict.fromkeys([*x_selected, *y_selected]))
+    numeric = df.loc[:, columns].apply(pd.to_numeric, errors="coerce")
+    valid_mask = np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1)
+    valid = numeric.loc[valid_mask]
+    if valid.empty:
+        raise ValueError("无有效数据，无法生成散点矩阵")
+
+    display = valid
+    if len(display) > max_points:
+        positions = np.linspace(0, len(display) - 1, max_points, dtype=int)
+        display = display.iloc[positions]
+    return x_selected, y_selected, valid, display
+
+
+def create_scatter_figure(
+    df: pd.DataFrame,
+    x_columns,
+    y_columns,
+    max_points=DEFAULT_MAX_SCATTER_POINTS,
+) -> go.Figure:
+    """Create an interactive Plotly XY scatter matrix."""
+
+    x_selected, y_selected, _, display = prepare_scatter_frame(
+        df, x_columns, y_columns, max_points
+    )
+    figure = make_subplots(rows=len(y_selected), cols=len(x_selected))
+    customdata = [str(value) for value in display.index]
+
+    for row, y_column in enumerate(y_selected, start=1):
+        for column, x_column in enumerate(x_selected, start=1):
+            figure.add_trace(
+                go.Scatter(
+                    x=display[x_column],
+                    y=display[y_column],
+                    customdata=customdata,
+                    mode="markers",
+                    name=f"{y_column} vs {x_column}",
+                    marker={"size": 6, "opacity": 0.75},
+                    hovertemplate=(
+                        f"时间: %{{customdata}}<br>"
+                        f"{x_column}: %{{x}}<br>"
+                        f"{y_column}: %{{y}}<extra></extra>"
+                    ),
+                    showlegend=False,
+                ),
+                row=row,
+                col=column,
+            )
+            figure.update_xaxes(title_text=str(x_column), row=row, col=column)
+            figure.update_yaxes(title_text=str(y_column), row=row, col=column)
+
+    figure.update_layout(
+        template="plotly_white",
+        title="XY 散点矩阵",
+        hovermode="closest",
+        showlegend=False,
+        height=max(360, 260 * len(y_selected)),
+        margin={"l": 60, "r": 30, "t": 55, "b": 60},
+    )
+    return figure
+
+
+create_scatter_chart = create_scatter_figure

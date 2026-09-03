@@ -6,10 +6,17 @@ import math
 
 import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html
+import plotly.graph_objects as go
 
 from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
 from backend.statistics import calculate_series_summary, calculate_statistics
+from charts.scatter import (
+    DEFAULT_MAX_SCATTER_POINTS,
+    MAX_SCATTER_VARIABLES,
+    create_scatter_figure,
+    prepare_scatter_frame,
+)
 from charts.trend import create_distribution_figure, create_trend_figure
 
 
@@ -102,6 +109,12 @@ def parse_tags(value: str) -> list[str]:
 
 def _empty_figure():
     return create_trend_figure(pd.DataFrame(index=pd.DatetimeIndex([], name="Timestamp")))
+
+
+def _empty_scatter_figure():
+    figure = go.Figure()
+    figure.update_layout(template="plotly_white")
+    return figure
 
 
 def _selected_columns(frame: pd.DataFrame, selected_columns=None) -> list:
@@ -592,6 +605,75 @@ def render_trend_view(
     return figure, cards, status
 
 
+def _scatter_columns(*values) -> list:
+    if len(values) == 1 and isinstance(values[0], (list, tuple)):
+        values = tuple(values[0])
+    return [value for value in values if value not in (None, "")]
+
+
+def _render_scatter_frame(
+    frame: pd.DataFrame,
+    x_columns,
+    y_columns,
+    max_points=DEFAULT_MAX_SCATTER_POINTS,
+):
+    x_selected, y_selected, _, display = prepare_scatter_frame(
+        frame, x_columns, y_columns, max_points
+    )
+    return (
+        create_scatter_figure(
+            display, x_selected, y_selected, max_points=len(display)
+        ),
+        f"实际绘图 {len(display)} 行；X数量 {len(x_selected)} × Y数量 {len(y_selected)}",
+    )
+
+
+def render_scatter_view(
+    viewer_state,
+    show_clicks=0,
+    x_1=None,
+    x_2=None,
+    x_3=None,
+    y_1=None,
+    y_2=None,
+    y_3=None,
+    max_points=DEFAULT_MAX_SCATTER_POINTS,
+):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if _triggered_id() == "viewer-state" or not show_clicks:
+        return _empty_scatter_figure(), ""
+    if not state.get("ready"):
+        return _empty_scatter_figure(), state.get("status", "尚未加载数据")
+
+    current = get_dataframe()
+    if current is None:
+        return _empty_scatter_figure(), "尚未加载数据"
+    try:
+        return _render_scatter_frame(
+            current,
+            _scatter_columns(x_1, x_2, x_3),
+            _scatter_columns(y_1, y_2, y_3),
+            max_points,
+        )
+    except (TypeError, ValueError) as exc:
+        return _empty_scatter_figure(), str(exc)
+
+
+def update_scatter_variable_options(viewer_state):
+    if not isinstance(viewer_state, dict):
+        options = []
+    else:
+        raw_options = viewer_state.get("options", [])
+        options = [dict(option) for option in raw_options if isinstance(option, dict)]
+    return options, options, options, options, options, options
+
+
+def update_show_scatter_state(viewer_state):
+    return not (
+        isinstance(viewer_state, dict) and viewer_state.get("ready")
+    )
+
+
 def update_source_controls(source):
     if source == _FILE_SOURCE:
         return {**_PI_QUERY_STYLE, "display": "none"}, {
@@ -794,6 +876,66 @@ layout = html.Div(
                             children=[],
                             style=_STATISTICS_GRID_STYLE,
                         ),
+                        html.H2("XY 散点矩阵"),
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Label(f"X变量{index}"),
+                                        dcc.Dropdown(
+                                            id=f"scatter-x-{index}",
+                                            options=[],
+                                            placeholder="请选择变量",
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                )
+                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
+                            ],
+                            style={
+                                "display": "grid",
+                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
+                                "gap": "0.5rem",
+                            },
+                        ),
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        html.Label(f"Y变量{index}"),
+                                        dcc.Dropdown(
+                                            id=f"scatter-y-{index}",
+                                            options=[],
+                                            placeholder="请选择变量",
+                                        ),
+                                    ],
+                                    style={"display": "grid", "gap": "0.25rem"},
+                                )
+                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
+                            ],
+                            style={
+                                "display": "grid",
+                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
+                                "gap": "0.5rem",
+                            },
+                        ),
+                        html.Button(
+                            "显示散点矩阵",
+                            id="show-scatter-button",
+                            n_clicks=0,
+                            disabled=True,
+                            style=_TREND_CONTROL_STYLE | {"width": "180px"},
+                        ),
+                        html.Div(
+                            id="scatter-status",
+                            role="status",
+                            **{"aria-live": "polite"},
+                        ),
+                        dcc.Graph(
+                            id="scatter-graph",
+                            config={"displaylogo": False, "scrollZoom": True},
+                            style={"height": "780px"},
+                        ),
                     ],
                     style={"flex": "1", "padding": "1rem"},
                 ),
@@ -868,3 +1010,34 @@ def register_callbacks(app) -> None:
         State("trend-max-points", "value"),
         prevent_initial_call=True,
     )(render_trend_view)
+
+    app.callback(
+        Output("scatter-x-1", "options"),
+        Output("scatter-x-2", "options"),
+        Output("scatter-x-3", "options"),
+        Output("scatter-y-1", "options"),
+        Output("scatter-y-2", "options"),
+        Output("scatter-y-3", "options"),
+        Input("viewer-state", "data"),
+        prevent_initial_call=True,
+    )(update_scatter_variable_options)
+
+    app.callback(
+        Output("show-scatter-button", "disabled"),
+        Input("viewer-state", "data"),
+        prevent_initial_call=True,
+    )(update_show_scatter_state)
+
+    app.callback(
+        Output("scatter-graph", "figure"),
+        Output("scatter-status", "children"),
+        Input("viewer-state", "data"),
+        Input("show-scatter-button", "n_clicks"),
+        State("scatter-x-1", "value"),
+        State("scatter-x-2", "value"),
+        State("scatter-x-3", "value"),
+        State("scatter-y-1", "value"),
+        State("scatter-y-2", "value"),
+        State("scatter-y-3", "value"),
+        prevent_initial_call=True,
+    )(render_scatter_view)
