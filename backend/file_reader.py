@@ -11,7 +11,7 @@ import pandas as pd
 
 
 _SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
-_CSV_FALLBACK_ENCODINGS = ("gb18030", "cp1252")
+_CSV_ENCODINGS = ("utf-8", "utf-8-sig", "gb18030", "gbk")
 
 
 def read_local_file(contents: str, filename: str) -> pd.DataFrame:
@@ -38,15 +38,13 @@ def read_local_file(contents: str, filename: str) -> pd.DataFrame:
 
 
 def _read_csv(raw: bytes) -> pd.DataFrame:
-    try:
-        return pd.read_csv(BytesIO(raw))
-    except UnicodeDecodeError:
-        for encoding in _CSV_FALLBACK_ENCODINGS:
-            try:
-                return pd.read_csv(BytesIO(raw), encoding=encoding)
-            except UnicodeDecodeError:
-                continue
-        raise
+    last_error = None
+    for encoding in _CSV_ENCODINGS:
+        try:
+            return pd.read_csv(BytesIO(raw), encoding=encoding)
+        except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
+            last_error = exc
+    raise ValueError("CSV 文件无法读取，已尝试 utf-8、utf-8-sig、gb18030、gbk 编码") from last_error
 
 
 def _decode_upload(contents: str) -> bytes:
