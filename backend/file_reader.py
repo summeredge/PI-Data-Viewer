@@ -1,10 +1,7 @@
-"""Read uploaded CSV/XLSX files into the Viewer DataFrame format."""
+"""Read local CSV/XLSX paths into the Viewer DataFrame format."""
 
 from __future__ import annotations
 
-import base64
-import binascii
-from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -14,31 +11,19 @@ _SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
 _CSV_ENCODINGS = ("utf-8", "utf-8-sig", "gb18030", "gbk")
 
 
-def read_local_file(contents: str, filename: str) -> pd.DataFrame:
-    """Decode a Dash upload and return a standardized numeric DataFrame."""
+def read_local_file(path: Path | str) -> pd.DataFrame:
+    """Read a local CSV/XLSX path and return a standardized numeric DataFrame."""
 
-    print(f"[file_reader] filename={filename!r}")
-    print(
-        f"[file_reader] contents_prefix={contents[:80]!r}"
-        if isinstance(contents, str)
-        else f"[file_reader] contents_prefix={contents!r}"
-    )
-
-    suffix = Path(filename).suffix.lower() if isinstance(filename, str) else ""
+    path = Path(path)
+    suffix = path.suffix.lower()
     if suffix not in _SUPPORTED_EXTENSIONS:
         raise ValueError("不支持的文件类型，仅支持 .csv 和 .xlsx")
 
-    raw = _decode_upload(contents)
-    print(f"[file_reader] raw_length={len(raw)}, raw[:100]={raw[:100]!r}")
     try:
         if suffix == ".csv":
-            print(
-                f"[file_reader] before _read_csv: type(raw)={type(raw)}, "
-                f"raw[:100]={raw[:100]!r}"
-            )
-            frame = _read_csv(raw)
+            frame = _read_csv(path)
         else:
-            frame = pd.read_excel(BytesIO(raw), sheet_name=0, engine="openpyxl")
+            frame = pd.read_excel(path, sheet_name=0, engine="openpyxl")
     except pd.errors.EmptyDataError as exc:
         raise ValueError("文件为空") from exc
     except ImportError as exc:
@@ -49,28 +34,16 @@ def read_local_file(contents: str, filename: str) -> pd.DataFrame:
     return _standardize_frame(frame)
 
 
-def _read_csv(raw: bytes) -> pd.DataFrame:
+def _read_csv(path: Path) -> pd.DataFrame:
     last_error = None
     for encoding in _CSV_ENCODINGS:
         try:
-            return pd.read_csv(BytesIO(raw), encoding=encoding)
+            return pd.read_csv(path, encoding=encoding)
+        except pd.errors.EmptyDataError:
+            raise
         except (UnicodeDecodeError, pd.errors.ParserError, ValueError) as exc:
             last_error = exc
     raise ValueError("CSV 文件无法读取，已尝试 utf-8、utf-8-sig、gb18030、gbk 编码") from last_error
-
-
-def _decode_upload(contents: str) -> bytes:
-    if not isinstance(contents, str) or not contents:
-        raise ValueError("文件为空")
-
-    payload = contents.split(",", 1)[-1]
-    try:
-        raw = base64.b64decode(payload, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise ValueError("文件内容无法读取") from exc
-    if not raw:
-        raise ValueError("文件为空")
-    return raw
 
 
 def _standardize_frame(frame: pd.DataFrame) -> pd.DataFrame:

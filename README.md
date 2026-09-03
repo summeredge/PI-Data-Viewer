@@ -34,7 +34,7 @@ Viewer 每次请求只在临时目录生成 `tags.txt`，并通过 stdout 接收
 
 PIReader 的 C# 项目和不连接 PI Server 的协议测试分别位于 `PIReader/` 和 `PIReader.Tests/`。项目引用安装环境提供的 `OSIsoft.PISDK`、`OSIsoft.PISDKCommon`、`OSIsoft.PITimeServer` interop，需在 Windows PI SDK 环境中用 .NET Framework/MSBuild 构建。
 
-统一读取结果为以 `DatetimeIndex`（名称为 `Timestamp`）为索引、数值列为变量的 pandas DataFrame。PI Server 使用 `read_pi_data(tags, start_time, end_time, interval)`，采样间隔可选 `1m`、`5m`、`10m`、`30m`、`1h`；本地上传文件使用 `read_local_file(contents, filename)`。
+统一读取结果为以 `DatetimeIndex`（名称为 `Timestamp`）为索引、数值列为变量的 pandas DataFrame。PI Server 使用 `read_pi_data(tags, start_time, end_time, interval)`，采样间隔可选 `1m`、`5m`、`10m`、`30m`、`1h`；本地文件通过 `POST /api/upload` 以 multipart 上传，服务端临时保存后使用 `read_local_file(path)` 读取。
 
 ## 技术栈
 

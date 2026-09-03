@@ -8,7 +8,6 @@ import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html
 
 from backend.dataframe_store import get_dataframe, store_dataframe
-from backend.file_reader import read_local_file
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
 from backend.statistics import calculate_series_summary, calculate_statistics
 from charts.trend import create_distribution_figure, create_trend_figure
@@ -59,6 +58,40 @@ _FILE_UPLOAD_STYLE = {
     "textAlign": "center",
 }
 _TREND_CONTROL_STYLE = {"width": "100%", "height": "38px"}
+_UPLOAD_CLIENTSIDE_FUNCTION = """
+async function(n_clicks) {
+    if (!n_clicks) {
+        return [window.dash_clientside.no_update, window.dash_clientside.no_update];
+    }
+    const input = document.getElementById("file-upload");
+    if (!input || !input.files || !input.files.length) {
+        return [window.dash_clientside.no_update, "请先选择文件"];
+    }
+
+    const form = new FormData();
+    form.append("file", input.files[0]);
+    const status = document.getElementById("upload-status");
+    if (status) status.textContent = "正在上传…";
+
+    try {
+        const response = await fetch("/api/upload", {
+            method: "POST",
+            body: form,
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            const message = result.error || "上传失败";
+            return [{ok: false, error: message}, `上传失败：${message}`];
+        }
+        return [result, `上传成功：${result.filename}（${result.rows} 行）`];
+    } catch (error) {
+        const message = error.message || "上传失败";
+        return [{ok: false, error: message}, `上传失败：${message}`];
+    } finally {
+        input.value = "";
+    }
+}
+"""
 
 
 def parse_tags(value: str) -> list[str]:
@@ -342,19 +375,19 @@ def _load_viewer(
     start_time,
     end_time,
     source=_PI_SOURCE,
-    upload_contents=None,
-    upload_filename=None,
+    upload_result=None,
     selected_columns=None,
     interval="1m",
 ):
     if source == _FILE_SOURCE:
-        if not upload_contents:
-            return "", [], [], False
-        try:
-            frame = read_local_file(upload_contents, upload_filename)
-        except Exception as exc:
-            message = str(exc) or exc.__class__.__name__
+        if not isinstance(upload_result, dict):
+            return "请选择文件", [], [], False
+        if not upload_result.get("ok"):
+            message = upload_result.get("error") or "上传失败"
             return f"文件读取失败：{message}", [], [], False
+        frame = get_dataframe()
+        if frame is None:
+            return "文件上传成功但没有可用数据", [], [], False
     else:
         if not n_clicks:
             return "", [], [], False
@@ -370,7 +403,7 @@ def _load_viewer(
             message = str(exc) or exc.__class__.__name__
             return f"数据读取失败：{message}", [], [], False
 
-    store_dataframe(frame)
+        store_dataframe(frame)
     current = get_dataframe()
     if current is None or current.empty:
         return "查询时间范围内无数据", [], [], False
@@ -387,8 +420,7 @@ def update_viewer(
     start_time,
     end_time,
     source=_PI_SOURCE,
-    upload_contents=None,
-    upload_filename=None,
+    upload_result=None,
     selected_columns=None,
     interval="1m",
 ):
@@ -398,8 +430,7 @@ def update_viewer(
         start_time,
         end_time,
         source,
-        upload_contents,
-        upload_filename,
+        upload_result,
         selected_columns,
         interval,
     )
@@ -485,13 +516,12 @@ def update_show_trend_state(viewer_state, selected_columns):
 
 def update_data_state(
     n_clicks,
-    upload_contents,
+    upload_result,
     clear_clicks,
     source,
     tag_value,
     start_time,
     end_time,
-    upload_filename,
     interval="1m",
 ):
     triggered_id = _triggered_id()
@@ -504,9 +534,9 @@ def update_data_state(
 
     if triggered_id == "query-button" and source != _PI_SOURCE:
         return _viewer_state([], "请切换到 PI Server 模式", False), []
-    if triggered_id == "file-upload" and source != _FILE_SOURCE:
+    if triggered_id == "upload-result" and source != _FILE_SOURCE:
         return _viewer_state([], "请切换到本地文件模式", False), []
-    if triggered_id not in {"query-button", "file-upload"}:
+    if triggered_id not in {"query-button", "upload-result"}:
         return _viewer_state([], "尚未加载数据", False), []
 
     status, options, selected, ready = _load_viewer(
@@ -515,8 +545,7 @@ def update_data_state(
         start_time,
         end_time,
         source,
-        upload_contents,
-        upload_filename,
+        upload_result,
         interval=interval,
     )
     return _viewer_state(options, status, ready), selected
@@ -628,11 +657,26 @@ layout = html.Div(
                             id="pi-query-controls",
                             style=_PI_QUERY_STYLE,
                         ),
-                        dcc.Upload(
-                            id="file-upload",
-                            children=html.Div("拖拽或点击上传 CSV / Excel 文件"),
-                            accept=".csv,.xlsx",
-                            multiple=False,
+                        html.Div(
+                            [
+                                dcc.Store(id="upload-result"),
+                                html.Label("选择 CSV / Excel 文件"),
+                                html.Div(
+                                    id="file-input-container",
+                                    children="正在准备文件控件…",
+                                ),
+                                html.Button(
+                                    "上传并加载",
+                                    id="file-upload-button",
+                                    n_clicks=0,
+                                ),
+                                html.Div(
+                                    id="upload-status",
+                                    role="status",
+                                    **{"aria-live": "polite"},
+                                ),
+                            ],
+                            id="file-upload-controls",
                             style=_FILE_UPLOAD_STYLE,
                         ),
                         html.H3("当前变量"),
@@ -764,21 +808,28 @@ layout = html.Div(
 def register_callbacks(app) -> None:
     app.callback(
         Output("pi-query-controls", "style"),
-        Output("file-upload", "style"),
+        Output("file-upload-controls", "style"),
         Input("data-source", "value"),
     )(update_source_controls)
+
+    app.clientside_callback(
+        _UPLOAD_CLIENTSIDE_FUNCTION,
+        Output("upload-result", "data"),
+        Output("upload-status", "children"),
+        Input("file-upload-button", "n_clicks"),
+        prevent_initial_call=True,
+    )
 
     app.callback(
         Output("viewer-state", "data"),
         Output("variable-selector", "value"),
         Input("query-button", "n_clicks"),
-        Input("file-upload", "contents"),
+        Input("upload-result", "data"),
         Input("clear-data-button", "n_clicks"),
         State("data-source", "value"),
         State("tag-input", "value"),
         State("start-time", "value"),
         State("end-time", "value"),
-        State("file-upload", "filename"),
         State("interval", "value"),
         prevent_initial_call=True,
     )(update_data_state)

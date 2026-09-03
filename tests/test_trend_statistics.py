@@ -312,12 +312,11 @@ def test_clear_data_callback_clears_selection_without_removing_store(monkeypatch
     state, selected = viewer.update_data_state(
         n_clicks=0,
         source="pi",
-        upload_contents=None,
+        upload_result=None,
         clear_clicks=1,
         tag_value=None,
         start_time=None,
         end_time=None,
-        upload_filename=None,
     )
 
     assert viewer.get_dataframe() is frame
