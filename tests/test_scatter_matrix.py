@@ -34,11 +34,7 @@ def test_scatter_layout_has_controls_button_and_graph():
 def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
     tabs = viewer.layout.children[2].children[1].children[0]
 
-    assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Statistics",
-    ]
+    assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter"]
     trend_ids = {
         component.id
         for component in _components(tabs.children[0])
@@ -49,17 +45,10 @@ def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
         for component in _components(tabs.children[1])
         if hasattr(component, "id")
     }
-    statistics_ids = {
-        component.id
-        for component in _components(tabs.children[2])
-        if hasattr(component, "id")
-    }
-
     assert "trend-graph" in trend_ids
     assert "scatter-graph" not in trend_ids
+    assert "statistics-cards" in trend_ids
     assert "scatter-graph" in scatter_ids
-    assert "statistics-cards" not in trend_ids
-    assert "statistics-cards" in statistics_ids
 
 
 def test_scatter_graph_disables_scroll_zoom():

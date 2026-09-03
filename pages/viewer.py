@@ -893,6 +893,13 @@ layout = html.Div(
                                             config={"displaylogo": False, "scrollZoom": True},
                                             style={"height": "600px"},
                                         ),
+                                        html.H2("基础统计"),
+                                        html.Div(
+                                            id="statistics-cards",
+                                            className="statistics-cards",
+                                            children=[],
+                                            style=_STATISTICS_GRID_STYLE,
+                                        ),
                                     ],
                                 ),
                                 dcc.Tab(
@@ -964,19 +971,6 @@ layout = html.Div(
                                             id="scatter-graph",
                                             config={"displaylogo": False, "scrollZoom": False},
                                             style={"height": "780px"},
-                                        ),
-                                    ],
-                                ),
-                                dcc.Tab(
-                                    label="Statistics",
-                                    value="statistics-tab",
-                                    children=[
-                                        html.H2("基础统计"),
-                                        html.Div(
-                                            id="statistics-cards",
-                                            className="statistics-cards",
-                                            children=[],
-                                            style=_STATISTICS_GRID_STYLE,
                                         ),
                                     ],
                                 ),
