@@ -280,7 +280,9 @@ def test_trend_controls_are_compact_and_aligned():
 
 def test_trend_max_points_has_new_default_and_upper_bound():
     assert viewer._resolve_max_plot_points(None, 1) == 45_000
+    assert viewer._resolve_max_plot_points(45_000, 8) == 45_000
     assert viewer._resolve_max_plot_points(45_000, 1) == 45_000
+    assert viewer._resolve_max_plot_points(135_000, 8) == 135_000
     assert viewer._resolve_max_plot_points(135_000, 1) == 135_000
     assert viewer._resolve_max_plot_points(135_001, 1) == 135_000
     trend_tab = viewer.layout.children[2].children[1].children[0].children[0]

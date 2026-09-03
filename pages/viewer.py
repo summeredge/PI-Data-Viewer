@@ -27,7 +27,6 @@ _MAX_SELECTED_COLUMNS = MAX_TAGS
 _DEFAULT_MAX_PLOT_POINTS = 45_000
 _MIN_PLOT_POINTS = 100
 _MAX_PLOT_POINTS = 135_000
-_MAX_TOTAL_PLOT_POINTS = 300_000
 _view_revision = 0
 _STAT_COLORS = (
     "#176b87",
@@ -48,10 +47,6 @@ _STATISTICS_GRID_STYLE = {
 _STATISTICS_CARD_STYLE = {
     "minWidth": 0,
     "overflow": "hidden",
-    "border": "1px solid #d9d9d9",
-    "borderRadius": "10px",
-    "backgroundColor": "#fff",
-    "padding": "12px",
 }
 _PI_QUERY_STYLE = {
     "display": "flex",
@@ -60,10 +55,6 @@ _PI_QUERY_STYLE = {
 }
 _FILE_UPLOAD_STYLE = {
     "display": "none",
-    "border": "1px dashed #999",
-    "borderRadius": "4px",
-    "padding": "1rem",
-    "textAlign": "center",
 }
 _TREND_CONTROL_STYLE = {"width": "100%", "height": "38px"}
 _UPLOAD_CLIENTSIDE_FUNCTION = """
@@ -157,7 +148,7 @@ def _parse_trend_time(value, label: str):
     return timestamp
 
 
-def _resolve_max_plot_points(value, series_count: int) -> int:
+def _resolve_max_plot_points(value, _series_count: int = 1) -> int:
     if value in (None, ""):
         requested = _DEFAULT_MAX_PLOT_POINTS
     else:
@@ -165,12 +156,7 @@ def _resolve_max_plot_points(value, series_count: int) -> int:
             requested = int(value)
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError("最大绘图点数必须是整数") from exc
-    requested = min(_MAX_PLOT_POINTS, max(_MIN_PLOT_POINTS, requested))
-    per_series_cap = max(
-        _MIN_PLOT_POINTS,
-        _MAX_TOTAL_PLOT_POINTS // max(1, int(series_count)),
-    )
-    return min(requested, per_series_cap)
+    return min(_MAX_PLOT_POINTS, max(_MIN_PLOT_POINTS, requested))
 
 
 def _prepare_trend_frame(
@@ -227,12 +213,20 @@ def _render_trend_frame(
         max_points,
     )
     statistics = calculate_statistics(full_frame.loc[:, selected])
+    requested_max_points = (
+        _DEFAULT_MAX_PLOT_POINTS if max_points in (None, "") else int(max_points)
+    )
+    max_points_status = (
+        f"配置最大点数 {requested_max_points}，实际每个位号上限 {effective_max_points}"
+        if requested_max_points != effective_max_points
+        else f"每个位号最大点数 {effective_max_points}"
+    )
     return (
         create_trend_figure(display_frame, selected, axis_mode),
         _statistics_records(statistics),
         _statistics_cards(full_frame, selected),
         f"趋势图已生成，原始 {len(full_frame)} 点，显示 {len(display_frame)} 点，"
-        f"最大点数 {effective_max_points}。",
+        f"{max_points_status}。",
     )
 
 
@@ -704,16 +698,46 @@ def update_source_controls(source):
     return _PI_QUERY_STYLE, _FILE_UPLOAD_STYLE
 
 
+def update_load_status(viewer_state):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if state.get("ready"):
+        return state.get("status") or "数据已加载"
+    return state.get("status") or "尚未加载数据"
+
+
+def _has_figure_data(figure) -> bool:
+    data = figure.get("data") if isinstance(figure, dict) else getattr(figure, "data", ())
+    return bool(data)
+
+
+def update_trend_empty_state(figure):
+    return {"display": "none"} if _has_figure_data(figure) else {"display": "flex"}
+
+
+def update_scatter_empty_state(figure):
+    return {"display": "none"} if _has_figure_data(figure) else {"display": "flex"}
+
+
 layout = html.Div(
     [
         dcc.Store(id="viewer-state"),
-        html.H1("PI Data Viewer"),
+        html.Header(
+            [
+                html.Div("HISTORICAL DATA VIEWER", className="eyebrow"),
+                html.H1("PI Data Viewer"),
+                html.P(
+                    "读取 PI 历史数据或本地文件，先查看摘要，再生成趋势与散点图。",
+                    className="page-description",
+                ),
+            ],
+            className="page-header",
+        ),
         html.Div(
             [
                 html.Aside(
                     [
-                        html.H2("查询参数"),
-                        html.Label("数据来源"),
+                        html.H2("查询参数", className="panel-title"),
+                        html.Label("数据来源", className="field-label-text"),
                         dcc.RadioItems(
                             id="data-source",
                             options=[
@@ -722,30 +746,57 @@ layout = html.Div(
                             ],
                             value=_PI_SOURCE,
                             inline=True,
+                            className="source-switch",
                         ),
-                        html.Div(
+                        html.Details(
                             [
-                                html.Label(f"PI Tag（每行一个，最多{MAX_TAGS}个）"),
-                                dcc.Textarea(
-                                    id="tag-input",
-                                    placeholder="TAG001.PV\nTAG002.PV",
-                                    style={"width": "100%", "height": "120px"},
+                                html.Summary("基础参数", className="details-summary"),
+                                html.Label(
+                                    [
+                                        html.Span(
+                                            f"PI Tag（每行一个，最多{MAX_TAGS}个）",
+                                            className="field-label-copy",
+                                        ),
+                                        dcc.Textarea(
+                                            id="tag-input",
+                                            placeholder="TAG001.PV\nTAG002.PV",
+                                            className="text-input tag-input",
+                                            style={"width": "100%", "height": "120px"},
+                                        ),
+                                    ],
+                                    className="field-label",
                                 ),
-                                html.Label("开始时间"),
-                                dcc.Input(
-                                    id="start-time",
-                                    type="text",
-                                    placeholder="YYYY-MM-DD HH:MM:SS",
-                                    style={"width": "100%"},
+                                html.Label(
+                                    [
+                                        html.Span("开始时间", className="field-label-copy"),
+                                        dcc.Input(
+                                            id="start-time",
+                                            type="text",
+                                            placeholder="YYYY-MM-DD HH:MM:SS",
+                                            className="text-input",
+                                            style={"width": "100%"},
+                                        ),
+                                    ],
+                                    className="field-label",
                                 ),
-                                html.Label("结束时间"),
-                                dcc.Input(
-                                    id="end-time",
-                                    type="text",
-                                    placeholder="YYYY-MM-DD HH:MM:SS",
-                                    style={"width": "100%"},
+                                html.Label(
+                                    [
+                                        html.Span("结束时间", className="field-label-copy"),
+                                        dcc.Input(
+                                            id="end-time",
+                                            type="text",
+                                            placeholder="YYYY-MM-DD HH:MM:SS",
+                                            className="text-input",
+                                            style={"width": "100%"},
+                                        ),
+                                    ],
+                                    className="field-label",
                                 ),
-                                html.Label("Interval"),
+                                html.Label(
+                                    "采样间隔",
+                                    htmlFor="interval",
+                                    className="field-label-copy",
+                                ),
                                 dcc.Dropdown(
                                     id="interval",
                                     options=[
@@ -754,39 +805,54 @@ layout = html.Div(
                                     ],
                                     value=INTERVAL_OPTIONS[0],
                                     clearable=False,
+                                    className="select-control",
                                 ),
-                                html.Button("查询", id="query-button", n_clicks=0),
+                                html.Button(
+                                    "查询",
+                                    id="query-button",
+                                    n_clicks=0,
+                                    type="button",
+                                    className="primary-button",
+                                ),
                             ],
                             id="pi-query-controls",
+                            open=True,
+                            className="parameter-section",
                             style=_PI_QUERY_STYLE,
                         ),
                         html.Div(
                             [
                                 dcc.Store(id="upload-result"),
-                                html.Label("选择 CSV / Excel 文件"),
+                                html.Label("选择 CSV / Excel 文件", className="field-label-text"),
                                 html.Div(
                                     id="file-input-container",
                                     children="正在准备文件控件…",
+                                    className="file-input-container",
                                 ),
                                 html.Button(
                                     "上传并加载",
                                     id="file-upload-button",
                                     n_clicks=0,
+                                    type="button",
+                                    className="primary-button",
                                 ),
                                 html.Div(
                                     id="upload-status",
+                                    className="status-message",
                                     role="status",
                                     **{"aria-live": "polite"},
                                 ),
                             ],
                             id="file-upload-controls",
+                            className="file-upload-section",
                             style=_FILE_UPLOAD_STYLE,
                         ),
-                        html.H3("当前变量"),
+                        html.H3("当前变量", className="panel-subtitle"),
                         dcc.Checklist(
                             id="variable-selector",
                             options=[],
                             value=[],
+                            className="variable-checklist",
                             labelStyle={"display": "block"},
                             inputStyle={"marginRight": "0.4rem"},
                         ),
@@ -794,65 +860,68 @@ layout = html.Div(
                             "清空选择",
                             id="clear-data-button",
                             n_clicks=0,
-                            style={"width": "100px"},
+                            type="button",
+                            className="secondary-button",
                         ),
-                        html.Div(id="query-status", role="status", **{"aria-live": "polite"}),
                     ],
-                    style={
-                        "borderRight": "1px solid #d9d9d9",
-                        "display": "flex",
-                        "flexDirection": "column",
-                        "gap": "0.5rem",
-                        "padding": "1rem",
-                        "width": "240px",
-                    },
+                    className="parameter-panel",
                 ),
                 html.Main(
                     [
                         dcc.Tabs(
                             id="viewer-tabs",
                             value="trend-tab",
+                            className="viewer-tabs",
+                            parent_className="viewer-tabs-parent",
+                            content_className="viewer-tabs-content",
                             children=[
                                 dcc.Tab(
                                     label="Trend",
                                     value="trend-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
                                     children=[
-                                        html.H2("趋势图"),
+                                        html.H2("结果", className="section-title"),
                                         html.Div(
                                             [
                                                 html.Label(
                                                     [
-                                                        "开始时间",
+                                                        html.Span(
+                                                            "显示开始时间",
+                                                            className="field-label-copy",
+                                                        ),
                                                         dcc.Input(
                                                             id="trend-start-time",
                                                             type="datetime-local",
                                                             step=1,
+                                                            className="text-input",
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="field-label trend-basic-field",
                                                 ),
                                                 html.Label(
                                                     [
-                                                        "结束时间",
+                                                        html.Span(
+                                                            "显示结束时间",
+                                                            className="field-label-copy",
+                                                        ),
                                                         dcc.Input(
                                                             id="trend-end-time",
                                                             type="datetime-local",
                                                             step=1,
+                                                            className="text-input",
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="field-label trend-basic-field",
                                                 ),
                                                 html.Label(
                                                     [
-                                                        "最大绘图点数",
+                                                        html.Span(
+                                                            "最大绘图点数",
+                                                            className="field-label-copy",
+                                                        ),
                                                         dcc.Input(
                                                             id="trend-max-points",
                                                             type="number",
@@ -860,17 +929,15 @@ layout = html.Div(
                                                             max=_MAX_PLOT_POINTS,
                                                             step=1,
                                                             value=_DEFAULT_MAX_PLOT_POINTS,
+                                                            className="text-input",
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="field-label advanced-field",
                                                 ),
                                                 html.Label(
                                                     [
-                                                        "Y 轴",
+                                                        html.Span("Y 轴", className="field-label-copy"),
                                                         dcc.Dropdown(
                                                             id="trend-axis-mode",
                                                             options=[
@@ -885,22 +952,34 @@ layout = html.Div(
                                                             ],
                                                             value="shared",
                                                             clearable=False,
+                                                            className="select-control",
                                                             style=_TREND_CONTROL_STYLE,
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="field-label advanced-field",
                                                 ),
                                                 html.Button(
                                                     "显示趋势",
                                                     id="show-trend-button",
                                                     n_clicks=0,
                                                     disabled=True,
+                                                    type="button",
+                                                    className="primary-button",
                                                     style=_TREND_CONTROL_STYLE,
                                                 ),
+                                                html.Button(
+                                                    "展开高级参数",
+                                                    id="trend-advanced-toggle",
+                                                    type="button",
+                                                    className="secondary-button advanced-toggle",
+                                                    **{
+                                                        "aria-expanded": "false",
+                                                        "aria-controls": "trend-controls",
+                                                    },
+                                                ),
                                             ],
+                                            id="trend-controls",
+                                            className="trend-controls",
                                             style={
                                                 "display": "grid",
                                                 "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
@@ -908,107 +987,229 @@ layout = html.Div(
                                                 "alignItems": "end",
                                             },
                                         ),
-                                        dcc.Graph(
-                                            id="trend-graph",
-                                            config={"displaylogo": False, "scrollZoom": True},
-                                            style={"height": "600px"},
+                                        dcc.Loading(
+                                            id="trend-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成趋势图…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                [
+                                                    html.Div(
+                                                        [
+                                                            html.Strong("暂无趋势结果"),
+                                                            html.Span(
+                                                                "加载数据后，点击“显示趋势”查看时间序列。"
+                                                            ),
+                                                        ],
+                                                        id="trend-empty-state",
+                                                        className="empty-state",
+                                                        role="status",
+                                                        **{"aria-live": "polite"},
+                                                    ),
+                                                    dcc.Graph(
+                                                        id="trend-graph",
+                                                        className="trend-graph",
+                                                        config={
+                                                            "displaylogo": False,
+                                                            "scrollZoom": True,
+                                                        },
+                                                        style={"height": "600px"},
+                                                    ),
+                                                ],
+                                                className="visualization-frame",
+                                            ),
                                         ),
-                                        html.H2("基础统计"),
-                                        html.Div(
-                                            id="statistics-cards",
-                                            className="statistics-cards",
-                                            children=[],
-                                            style=_STATISTICS_GRID_STYLE,
+                                        html.Details(
+                                            [
+                                                html.Summary(
+                                                    "详情：逐变量统计与分布",
+                                                    className="details-summary",
+                                                ),
+                                                html.Div(
+                                                    [
+                                                        html.H2("基础统计", className="section-subtitle"),
+                                                        html.Div(
+                                                            id="statistics-cards",
+                                                            className="statistics-cards",
+                                                            children=[],
+                                                            style=_STATISTICS_GRID_STYLE,
+                                                        ),
+                                                    ],
+                                                    className="detail-content",
+                                                ),
+                                            ],
+                                            open=True,
+                                            className="detail-section",
                                         ),
                                     ],
                                 ),
                                 dcc.Tab(
                                     label="XY Scatter",
                                     value="scatter-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
                                     children=[
-                                        html.H2("XY 散点矩阵"),
+                                        html.H2("XY 散点矩阵", className="section-title"),
                                         html.Div(
                                             [
                                                 html.Div(
                                                     [
-                                                        html.Label(f"X变量{index}"),
-                                                        dcc.Dropdown(
-                                                            id=f"scatter-x-{index}",
-                                                            options=[],
-                                                            placeholder="请选择变量",
+                                                        html.Label(
+                                                            [
+                                                                html.Span(
+                                                                    f"X 变量 {index}",
+                                                                    className="field-label-copy",
+                                                                ),
+                                                                dcc.Dropdown(
+                                                                    id=f"scatter-x-{index}",
+                                                                    options=[],
+                                                                    placeholder="请选择变量",
+                                                                    className="select-control",
+                                                                ),
+                                                            ],
+                                                            className="field-label",
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="scatter-axis-field",
                                                 )
                                                 for index in range(1, MAX_SCATTER_VARIABLES + 1)
                                             ],
-                                            style={
-                                                "display": "grid",
-                                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
-                                                "gap": "0.5rem",
-                                            },
+                                            className="scatter-axis-group",
                                         ),
                                         html.Div(
                                             [
                                                 html.Div(
                                                     [
-                                                        html.Label(f"Y变量{index}"),
-                                                        dcc.Dropdown(
-                                                            id=f"scatter-y-{index}",
-                                                            options=[],
-                                                            placeholder="请选择变量",
+                                                        html.Label(
+                                                            [
+                                                                html.Span(
+                                                                    f"Y 变量 {index}",
+                                                                    className="field-label-copy",
+                                                                ),
+                                                                dcc.Dropdown(
+                                                                    id=f"scatter-y-{index}",
+                                                                    options=[],
+                                                                    placeholder="请选择变量",
+                                                                    className="select-control",
+                                                                ),
+                                                            ],
+                                                            className="field-label",
                                                         ),
                                                     ],
-                                                    style={
-                                                        "display": "grid",
-                                                        "gap": "0.25rem",
-                                                    },
+                                                    className="scatter-axis-field",
                                                 )
                                                 for index in range(1, MAX_SCATTER_VARIABLES + 1)
                                             ],
-                                            style={
-                                                "display": "grid",
-                                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
-                                                "gap": "0.5rem",
-                                            },
+                                            className="scatter-axis-group",
                                         ),
                                         html.Button(
                                             "显示散点矩阵",
                                             id="show-scatter-button",
                                             n_clicks=0,
                                             disabled=True,
+                                            type="button",
+                                            className="primary-button",
                                             style=_TREND_CONTROL_STYLE | {"width": "180px"},
                                         ),
                                         html.Div(
                                             id="scatter-status",
+                                            className="status-message",
                                             role="status",
                                             **{"aria-live": "polite"},
                                         ),
-                                        dcc.Graph(
-                                            id="scatter-graph",
-                                            responsive=True,
-                                            config={"displaylogo": False, "scrollZoom": False},
-                                            style={
-                                                "width": "420px",
-                                                "maxWidth": "100%",
-                                                "height": "420px",
-                                            },
+                                        dcc.Loading(
+                                            id="scatter-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成散点矩阵…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                [
+                                                    html.Div(
+                                                        [
+                                                            html.Strong("暂无散点结果"),
+                                                            html.Span(
+                                                                "选择 X/Y 变量后，点击按钮生成矩阵。"
+                                                            ),
+                                                        ],
+                                                        id="scatter-empty-state",
+                                                        className="empty-state",
+                                                        role="status",
+                                                        **{"aria-live": "polite"},
+                                                    ),
+                                                    dcc.Graph(
+                                                        id="scatter-graph",
+                                                        className="scatter-graph",
+                                                        responsive=True,
+                                                        config={
+                                                            "displaylogo": False,
+                                                            "scrollZoom": False,
+                                                        },
+                                                        style={
+                                                            "width": "420px",
+                                                            "maxWidth": "100%",
+                                                            "height": "420px",
+                                                        },
+                                                    ),
+                                                ],
+                                                className="scatter-visualization-frame",
+                                            ),
                                         ),
                                     ],
                                 ),
                             ],
                         ),
+                        html.Section(
+                            [
+                                html.Div(
+                                    [
+                                        html.H2("运行日志", className="section-subtitle"),
+                                        html.P(
+                                            "查询、上传和图表生成状态会显示在这里。",
+                                            className="section-help",
+                                        ),
+                                    ],
+                                    className="section-heading",
+                                ),
+                                dcc.Loading(
+                                    id="data-status-loading",
+                                    type="dot",
+                                    color="#176b87",
+                                    custom_spinner=html.Div(
+                                        "正在读取数据…",
+                                        className="loading-message",
+                                    ),
+                                    children=html.Div(
+                                        id="load-status",
+                                        className="status-message",
+                                        role="status",
+                                        children="尚未加载数据",
+                                        **{"aria-live": "polite"},
+                                    ),
+                                ),
+                                html.Div(
+                                    id="query-status",
+                                    className="status-message status-message-secondary",
+                                    role="status",
+                                    children="等待趋势或散点操作",
+                                    **{"aria-live": "polite"},
+                                ),
+                            ],
+                            className="log-section",
+                        ),
                     ],
-                    style={"flex": "1", "padding": "1rem"},
+                    className="results-panel",
                 ),
             ],
-            style={"display": "flex", "minHeight": "400px"},
+            className="app-layout",
         ),
     ],
-    style={"fontFamily": "Arial, sans-serif", "margin": "2rem"},
+    className="page-shell",
 )
 
 
@@ -1117,3 +1318,18 @@ def register_callbacks(app) -> None:
         State("scatter-y-3", "value"),
         prevent_initial_call=True,
     )(render_scatter_view)
+
+    app.callback(
+        Output("load-status", "children"),
+        Input("viewer-state", "data"),
+    )(update_load_status)
+
+    app.callback(
+        Output("trend-empty-state", "style"),
+        Input("trend-graph", "figure"),
+    )(update_trend_empty_state)
+
+    app.callback(
+        Output("scatter-empty-state", "style"),
+        Input("scatter-graph", "figure"),
+    )(update_scatter_empty_state)
