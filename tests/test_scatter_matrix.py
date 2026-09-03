@@ -4,7 +4,12 @@ import plotly.graph_objects as go
 import pytest
 
 from backend.dataframe_store import store_dataframe
-from charts.scatter import create_scatter_figure, prepare_scatter_frame
+from charts.scatter import (
+    DEFAULT_MAX_SCATTER_POINTS,
+    MAX_SCATTER_POINTS,
+    create_scatter_figure,
+    prepare_scatter_frame,
+)
 from pages import viewer
 
 
@@ -24,6 +29,47 @@ def test_scatter_layout_has_controls_button_and_graph():
     assert {f"scatter-x-{index}" for index in range(1, 4)} <= ids
     assert {f"scatter-y-{index}" for index in range(1, 4)} <= ids
     assert {"show-scatter-button", "scatter-graph"} <= ids
+
+
+def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
+    tabs = viewer.layout.children[2].children[1].children[0]
+
+    assert [tab.label for tab in tabs.children] == [
+        "Trend",
+        "XY Scatter",
+        "Statistics",
+    ]
+    trend_ids = {
+        component.id
+        for component in _components(tabs.children[0])
+        if hasattr(component, "id")
+    }
+    scatter_ids = {
+        component.id
+        for component in _components(tabs.children[1])
+        if hasattr(component, "id")
+    }
+    statistics_ids = {
+        component.id
+        for component in _components(tabs.children[2])
+        if hasattr(component, "id")
+    }
+
+    assert "trend-graph" in trend_ids
+    assert "scatter-graph" not in trend_ids
+    assert "scatter-graph" in scatter_ids
+    assert "statistics-cards" not in trend_ids
+    assert "statistics-cards" in statistics_ids
+
+
+def test_scatter_graph_disables_scroll_zoom():
+    graph = next(
+        component
+        for component in _components(viewer.layout)
+        if getattr(component, "id", None) == "scatter-graph"
+    )
+
+    assert graph.config["scrollZoom"] is False
 
 
 def test_create_scatter_figure_maps_all_xy_pairs_and_hover_data():
@@ -120,7 +166,7 @@ def test_render_scatter_view_uses_current_dataframe_and_reports_counts(monkeypat
     )
 
     assert len(figure.data) == 4
-    assert status == "实际绘图 2 行；X数量 2 × Y数量 2"
+    assert status == "实际绘图点数 2 / 2；X数量 2 × Y数量 2"
 
 
 def test_render_scatter_view_reports_empty_selection_and_data(monkeypatch):
@@ -134,3 +180,29 @@ def test_render_scatter_view_reports_empty_selection_and_data(monkeypatch):
 
     assert selection_status == "请至少选择一个X变量"
     assert data_status == "无有效数据，无法生成散点矩阵"
+
+
+def test_scatter_default_limit_reports_display_and_raw_points():
+    frame = pd.DataFrame(
+        {"X1": np.arange(50_000, dtype=float), "Y1": np.arange(50_000, dtype=float)},
+        index=pd.date_range("2024-01-01", periods=50_000, freq="min"),
+    )
+
+    figure, status = viewer._render_scatter_frame(frame, ["X1"], ["Y1"])
+
+    assert len(figure.data[0].x) == DEFAULT_MAX_SCATTER_POINTS == 5_000
+    assert status.startswith("实际绘图点数 5000 / 50000")
+
+
+def test_scatter_maximum_limit_caps_large_input():
+    frame = pd.DataFrame(
+        {"X1": np.arange(200_000, dtype=float), "Y1": np.arange(200_000, dtype=float)},
+    )
+
+    figure = create_scatter_figure(
+        frame, ["X1"], ["Y1"], max_points=200_000
+    )
+
+    assert MAX_SCATTER_POINTS == 10_000
+    assert len(figure.data[0].x) == MAX_SCATTER_POINTS
+    assert figure.data[0].type == "scattergl"

@@ -255,7 +255,8 @@ def test_trend_time_controls_follow_loaded_frame():
 
 
 def test_trend_controls_are_compact_and_aligned():
-    trend_controls = viewer.layout.children[2].children[1].children[1]
+    trend_tab = viewer.layout.children[2].children[1].children[0].children[0]
+    trend_controls = trend_tab.children[1]
 
     control_ids = [
         *(child.children[1].id for child in trend_controls.children[:4]),
@@ -282,7 +283,8 @@ def test_trend_max_points_has_new_default_and_upper_bound():
     assert viewer._resolve_max_plot_points(45_000, 1) == 45_000
     assert viewer._resolve_max_plot_points(135_000, 1) == 135_000
     assert viewer._resolve_max_plot_points(135_001, 1) == 135_000
-    max_points_input = viewer.layout.children[2].children[1].children[1].children[2].children[1]
+    trend_tab = viewer.layout.children[2].children[1].children[0].children[0]
+    max_points_input = trend_tab.children[1].children[2].children[1]
     assert max_points_input.value == 45_000
     assert max_points_input.max == 135_000
 

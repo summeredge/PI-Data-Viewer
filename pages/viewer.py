@@ -624,7 +624,8 @@ def _render_scatter_frame(
         create_scatter_figure(
             display, x_selected, y_selected, max_points=len(display)
         ),
-        f"实际绘图 {len(display)} 行；X数量 {len(x_selected)} × Y数量 {len(y_selected)}",
+        f"实际绘图点数 {len(display)} / {len(frame)}；"
+        f"X数量 {len(x_selected)} × Y数量 {len(y_selected)}",
     )
 
 
@@ -788,153 +789,198 @@ layout = html.Div(
                 ),
                 html.Main(
                     [
-                        html.H2("趋势图"),
-                        html.Div(
-                            [
-                                html.Label(
-                                    [
-                                        "开始时间",
-                                        dcc.Input(
-                                            id="trend-start-time",
-                                            type="datetime-local",
-                                            step=1,
-                                            style=_TREND_CONTROL_STYLE,
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                ),
-                                html.Label(
-                                    [
-                                        "结束时间",
-                                        dcc.Input(
-                                            id="trend-end-time",
-                                            type="datetime-local",
-                                            step=1,
-                                            style=_TREND_CONTROL_STYLE,
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                ),
-                                html.Label(
-                                    [
-                                        "最大绘图点数",
-                                        dcc.Input(
-                                            id="trend-max-points",
-                                            type="number",
-                                            min=_MIN_PLOT_POINTS,
-                                            max=_MAX_PLOT_POINTS,
-                                            step=1,
-                                            value=_DEFAULT_MAX_PLOT_POINTS,
-                                            style=_TREND_CONTROL_STYLE,
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                ),
-                                html.Label(
-                                    [
-                                        "Y 轴",
-                                        dcc.Dropdown(
-                                            id="trend-axis-mode",
-                                            options=[
-                                                {"label": "同一 Y 轴", "value": "shared"},
-                                                {
-                                                    "label": "独立 Y 轴",
-                                                    "value": "independent",
-                                                },
+                        dcc.Tabs(
+                            id="viewer-tabs",
+                            value="trend-tab",
+                            children=[
+                                dcc.Tab(
+                                    label="Trend",
+                                    value="trend-tab",
+                                    children=[
+                                        html.H2("趋势图"),
+                                        html.Div(
+                                            [
+                                                html.Label(
+                                                    [
+                                                        "开始时间",
+                                                        dcc.Input(
+                                                            id="trend-start-time",
+                                                            type="datetime-local",
+                                                            step=1,
+                                                            style=_TREND_CONTROL_STYLE,
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                ),
+                                                html.Label(
+                                                    [
+                                                        "结束时间",
+                                                        dcc.Input(
+                                                            id="trend-end-time",
+                                                            type="datetime-local",
+                                                            step=1,
+                                                            style=_TREND_CONTROL_STYLE,
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                ),
+                                                html.Label(
+                                                    [
+                                                        "最大绘图点数",
+                                                        dcc.Input(
+                                                            id="trend-max-points",
+                                                            type="number",
+                                                            min=_MIN_PLOT_POINTS,
+                                                            max=_MAX_PLOT_POINTS,
+                                                            step=1,
+                                                            value=_DEFAULT_MAX_PLOT_POINTS,
+                                                            style=_TREND_CONTROL_STYLE,
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                ),
+                                                html.Label(
+                                                    [
+                                                        "Y 轴",
+                                                        dcc.Dropdown(
+                                                            id="trend-axis-mode",
+                                                            options=[
+                                                                {
+                                                                    "label": "同一 Y 轴",
+                                                                    "value": "shared",
+                                                                },
+                                                                {
+                                                                    "label": "独立 Y 轴",
+                                                                    "value": "independent",
+                                                                },
+                                                            ],
+                                                            value="shared",
+                                                            clearable=False,
+                                                            style=_TREND_CONTROL_STYLE,
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                ),
+                                                html.Button(
+                                                    "显示趋势",
+                                                    id="show-trend-button",
+                                                    n_clicks=0,
+                                                    disabled=True,
+                                                    style=_TREND_CONTROL_STYLE,
+                                                ),
                                             ],
-                                            value="shared",
-                                            clearable=False,
-                                            style=_TREND_CONTROL_STYLE,
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
+                                                "gap": "0.5rem",
+                                                "alignItems": "end",
+                                            },
+                                        ),
+                                        dcc.Graph(
+                                            id="trend-graph",
+                                            config={"displaylogo": False, "scrollZoom": True},
+                                            style={"height": "600px"},
                                         ),
                                     ],
-                                    style={"display": "grid", "gap": "0.25rem"},
                                 ),
-                                html.Button(
-                                    "显示趋势",
-                                    id="show-trend-button",
-                                    n_clicks=0,
-                                    disabled=True,
-                                    style=_TREND_CONTROL_STYLE,
+                                dcc.Tab(
+                                    label="XY Scatter",
+                                    value="scatter-tab",
+                                    children=[
+                                        html.H2("XY 散点矩阵"),
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        html.Label(f"X变量{index}"),
+                                                        dcc.Dropdown(
+                                                            id=f"scatter-x-{index}",
+                                                            options=[],
+                                                            placeholder="请选择变量",
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                )
+                                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
+                                            ],
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
+                                                "gap": "0.5rem",
+                                            },
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        html.Label(f"Y变量{index}"),
+                                                        dcc.Dropdown(
+                                                            id=f"scatter-y-{index}",
+                                                            options=[],
+                                                            placeholder="请选择变量",
+                                                        ),
+                                                    ],
+                                                    style={
+                                                        "display": "grid",
+                                                        "gap": "0.25rem",
+                                                    },
+                                                )
+                                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
+                                            ],
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
+                                                "gap": "0.5rem",
+                                            },
+                                        ),
+                                        html.Button(
+                                            "显示散点矩阵",
+                                            id="show-scatter-button",
+                                            n_clicks=0,
+                                            disabled=True,
+                                            style=_TREND_CONTROL_STYLE | {"width": "180px"},
+                                        ),
+                                        html.Div(
+                                            id="scatter-status",
+                                            role="status",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Graph(
+                                            id="scatter-graph",
+                                            config={"displaylogo": False, "scrollZoom": False},
+                                            style={"height": "780px"},
+                                        ),
+                                    ],
+                                ),
+                                dcc.Tab(
+                                    label="Statistics",
+                                    value="statistics-tab",
+                                    children=[
+                                        html.H2("基础统计"),
+                                        html.Div(
+                                            id="statistics-cards",
+                                            className="statistics-cards",
+                                            children=[],
+                                            style=_STATISTICS_GRID_STYLE,
+                                        ),
+                                    ],
                                 ),
                             ],
-                            style={
-                                "display": "grid",
-                                "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
-                                "gap": "0.5rem",
-                                "alignItems": "end",
-                            },
-                        ),
-                        dcc.Graph(
-                            id="trend-graph",
-                            config={"displaylogo": False, "scrollZoom": True},
-                            style={"height": "600px"},
-                        ),
-                        html.H2("基础统计"),
-                        html.Div(
-                            id="statistics-cards",
-                            className="statistics-cards",
-                            children=[],
-                            style=_STATISTICS_GRID_STYLE,
-                        ),
-                        html.H2("XY 散点矩阵"),
-                        html.Div(
-                            [
-                                html.Div(
-                                    [
-                                        html.Label(f"X变量{index}"),
-                                        dcc.Dropdown(
-                                            id=f"scatter-x-{index}",
-                                            options=[],
-                                            placeholder="请选择变量",
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                )
-                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
-                            ],
-                            style={
-                                "display": "grid",
-                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
-                                "gap": "0.5rem",
-                            },
-                        ),
-                        html.Div(
-                            [
-                                html.Div(
-                                    [
-                                        html.Label(f"Y变量{index}"),
-                                        dcc.Dropdown(
-                                            id=f"scatter-y-{index}",
-                                            options=[],
-                                            placeholder="请选择变量",
-                                        ),
-                                    ],
-                                    style={"display": "grid", "gap": "0.25rem"},
-                                )
-                                for index in range(1, MAX_SCATTER_VARIABLES + 1)
-                            ],
-                            style={
-                                "display": "grid",
-                                "gridTemplateColumns": "repeat(3, minmax(0, 1fr))",
-                                "gap": "0.5rem",
-                            },
-                        ),
-                        html.Button(
-                            "显示散点矩阵",
-                            id="show-scatter-button",
-                            n_clicks=0,
-                            disabled=True,
-                            style=_TREND_CONTROL_STYLE | {"width": "180px"},
-                        ),
-                        html.Div(
-                            id="scatter-status",
-                            role="status",
-                            **{"aria-live": "polite"},
-                        ),
-                        dcc.Graph(
-                            id="scatter-graph",
-                            config={"displaylogo": False, "scrollZoom": True},
-                            style={"height": "780px"},
                         ),
                     ],
                     style={"flex": "1", "padding": "1rem"},

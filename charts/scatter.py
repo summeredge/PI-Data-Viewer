@@ -9,7 +9,8 @@ from plotly.subplots import make_subplots
 
 
 MAX_SCATTER_VARIABLES = 3
-DEFAULT_MAX_SCATTER_POINTS = 20_000
+DEFAULT_MAX_SCATTER_POINTS = 5_000
+MAX_SCATTER_POINTS = 10_000
 
 
 def _selected_columns(columns, axis_label: str) -> list:
@@ -35,7 +36,7 @@ def _max_points(value) -> int:
         raise ValueError("最大散点数量必须是正整数") from exc
     if value < 1:
         raise ValueError("最大散点数量必须是正整数")
-    return value
+    return min(value, MAX_SCATTER_POINTS)
 
 
 def prepare_scatter_frame(
@@ -91,7 +92,7 @@ def create_scatter_figure(
     for row, y_column in enumerate(y_selected, start=1):
         for column, x_column in enumerate(x_selected, start=1):
             figure.add_trace(
-                go.Scatter(
+                go.Scattergl(
                     x=display[x_column],
                     y=display[y_column],
                     customdata=customdata,
