@@ -11,6 +11,7 @@ import pandas as pd
 
 
 _SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
+_CSV_FALLBACK_ENCODINGS = ("gb18030", "cp1252")
 
 
 def read_local_file(contents: str, filename: str) -> pd.DataFrame:
@@ -23,7 +24,7 @@ def read_local_file(contents: str, filename: str) -> pd.DataFrame:
     raw = _decode_upload(contents)
     try:
         if suffix == ".csv":
-            frame = pd.read_csv(BytesIO(raw))
+            frame = _read_csv(raw)
         else:
             frame = pd.read_excel(BytesIO(raw), sheet_name=0, engine="openpyxl")
     except pd.errors.EmptyDataError as exc:
@@ -34,6 +35,18 @@ def read_local_file(contents: str, filename: str) -> pd.DataFrame:
         raise ValueError(f"文件无法读取：{exc}") from exc
 
     return _standardize_frame(frame)
+
+
+def _read_csv(raw: bytes) -> pd.DataFrame:
+    try:
+        return pd.read_csv(BytesIO(raw))
+    except UnicodeDecodeError:
+        for encoding in _CSV_FALLBACK_ENCODINGS:
+            try:
+                return pd.read_csv(BytesIO(raw), encoding=encoding)
+            except UnicodeDecodeError:
+                continue
+        raise
 
 
 def _decode_upload(contents: str) -> bytes:

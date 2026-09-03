@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from backend.dataframe_store import get_dataframe
+from backend import file_reader
 from backend.file_reader import read_local_file
 from pages import viewer
 
@@ -32,6 +33,61 @@ def test_csv_import_uses_standard_dataframe_format():
     assert frame["A.PV"].tolist() == [10.1, 10.2]
     assert frame["B.PV"].tolist() == [20.1, 20.2]
     assert all(pd.api.types.is_numeric_dtype(frame[column]) for column in frame.columns)
+
+
+def test_utf8_sig_csv_keeps_timestamp_index():
+    frame = read_local_file(
+        _upload_contents(CSV_DATA.encode("utf-8-sig"), "text/csv"), "sample.csv"
+    )
+
+    assert isinstance(frame.index, pd.DatetimeIndex)
+    assert frame.index.name == "Timestamp"
+    assert frame.index[0] == pd.Timestamp("2026-09-01 00:00:00")
+
+
+def test_windows_encoded_csv_is_read_without_utf8_decode_failure():
+    data = (
+        "时间,温度.PV\n"
+        "2026-09-01 00:00:00,10\n"
+        "2026-09-01 00:01:00,11\n"
+    ).encode("gbk")
+
+    frame = read_local_file(_upload_contents(data, "text/csv"), "sample.csv")
+
+    assert frame.index.name == "Timestamp"
+    assert list(frame.columns) == ["温度.PV"]
+    assert frame["温度.PV"].tolist() == [10, 11]
+
+
+def test_upload_bytes_reach_pandas_as_binary_stream(monkeypatch):
+    data = CSV_DATA.encode("utf-8")
+    streams = []
+
+    def fake_read_csv(stream, **kwargs):
+        streams.append((stream, kwargs))
+        assert isinstance(stream, BytesIO)
+        assert stream.read() == data
+        return pd.DataFrame(
+            {"Timestamp": ["2026-09-01 00:00:00"], "A.PV": [10]}
+        )
+
+    monkeypatch.setattr(file_reader.pd, "read_csv", fake_read_csv)
+
+    frame = read_local_file(_upload_contents(data, "text/csv"), "sample.csv")
+
+    assert len(streams) == 1
+    assert streams[0][1] == {}
+    assert frame.index.name == "Timestamp"
+
+
+def test_csv_upload_path_does_not_force_utf8_decode():
+    source = (
+        Path(__file__).resolve().parents[1] / "backend" / "file_reader.py"
+    ).read_text(encoding="utf-8")
+
+    assert ".decode(" not in source
+    assert "StringIO" not in source
+    assert "pd.read_csv(BytesIO(raw))" in source
 
 
 def test_excel_import_matches_equivalent_csv():
