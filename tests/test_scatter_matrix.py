@@ -6,7 +6,7 @@ import pytest
 from backend.dataframe_store import store_dataframe
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
-    MAX_SCATTER_POINTS,
+    MAX_TOTAL_SCATTER_POINTS,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -171,27 +171,43 @@ def test_render_scatter_view_reports_empty_selection_and_data(monkeypatch):
     assert data_status == "无有效数据，无法生成散点矩阵"
 
 
-def test_scatter_default_limit_reports_display_and_raw_points():
+def test_scatter_43200_points_are_not_sampled_and_report_raw_points():
     frame = pd.DataFrame(
-        {"X1": np.arange(50_000, dtype=float), "Y1": np.arange(50_000, dtype=float)},
-        index=pd.date_range("2024-01-01", periods=50_000, freq="min"),
+        {"X1": np.arange(43_200, dtype=float), "Y1": np.arange(43_200, dtype=float)},
+        index=pd.date_range("2024-01-01", periods=43_200, freq="min"),
     )
 
     figure, status = viewer._render_scatter_frame(frame, ["X1"], ["Y1"])
 
-    assert len(figure.data[0].x) == DEFAULT_MAX_SCATTER_POINTS == 5_000
-    assert status.startswith("实际绘图点数 5000 / 50000")
+    assert DEFAULT_MAX_SCATTER_POINTS == 100_000
+    assert len(figure.data[0].x) == 43_200
+    assert status.startswith("实际绘图点数 43200 / 43200")
 
 
-def test_scatter_maximum_limit_caps_large_input():
+def test_scatter_single_trace_cap_samples_150000_and_reports_raw_points():
     frame = pd.DataFrame(
-        {"X1": np.arange(200_000, dtype=float), "Y1": np.arange(200_000, dtype=float)},
+        {"X1": np.arange(150_000, dtype=float), "Y1": np.arange(150_000, dtype=float)},
     )
 
-    figure = create_scatter_figure(
-        frame, ["X1"], ["Y1"], max_points=200_000
-    )
+    figure, status = viewer._render_scatter_frame(frame, ["X1"], ["Y1"])
 
-    assert MAX_SCATTER_POINTS == 10_000
-    assert len(figure.data[0].x) == MAX_SCATTER_POINTS
+    assert len(figure.data[0].x) == DEFAULT_MAX_SCATTER_POINTS
+    assert status.startswith("实际绘图点数 100000 / 150000")
     assert figure.data[0].type == "scattergl"
+
+
+def test_scatter_three_by_three_uses_total_point_budget():
+    frame = pd.DataFrame(
+        {
+            column: np.arange(150_000, dtype=float)
+            for column in ["X1", "X2", "X3", "Y1", "Y2", "Y3"]
+        }
+    )
+
+    figure, status = viewer._render_scatter_frame(
+        frame, ["X1", "X2", "X3"], ["Y1", "Y2", "Y3"]
+    )
+
+    assert all(len(trace.x) == 33_333 for trace in figure.data)
+    assert sum(len(trace.x) for trace in figure.data) <= MAX_TOTAL_SCATTER_POINTS
+    assert status.startswith("实际绘图点数 33333 / 150000")

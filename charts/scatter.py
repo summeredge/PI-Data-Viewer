@@ -9,8 +9,8 @@ from plotly.subplots import make_subplots
 
 
 MAX_SCATTER_VARIABLES = 3
-DEFAULT_MAX_SCATTER_POINTS = 5_000
-MAX_SCATTER_POINTS = 10_000
+DEFAULT_MAX_SCATTER_POINTS = 100_000
+MAX_TOTAL_SCATTER_POINTS = 300_000
 
 
 def _selected_columns(columns, axis_label: str) -> list:
@@ -27,16 +27,21 @@ def _selected_columns(columns, axis_label: str) -> list:
     return selected
 
 
-def _max_points(value) -> int:
+def _max_points(value, pair_count: int) -> int:
     if value in (None, ""):
-        return DEFAULT_MAX_SCATTER_POINTS
-    try:
-        value = int(value)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("最大散点数量必须是正整数") from exc
-    if value < 1:
-        raise ValueError("最大散点数量必须是正整数")
-    return min(value, MAX_SCATTER_POINTS)
+        requested = DEFAULT_MAX_SCATTER_POINTS
+    else:
+        try:
+            requested = int(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("最大散点数量必须是正整数") from exc
+        if requested < 1:
+            raise ValueError("最大散点数量必须是正整数")
+    return min(
+        requested,
+        DEFAULT_MAX_SCATTER_POINTS,
+        MAX_TOTAL_SCATTER_POINTS // pair_count,
+    )
 
 
 def prepare_scatter_frame(
@@ -60,7 +65,9 @@ def prepare_scatter_frame(
     if missing:
         raise ValueError(f"变量不存在：{', '.join(map(str, missing))}")
 
-    max_points = _max_points(max_points)
+    max_points = _max_points(
+        max_points, len(x_selected) * len(y_selected)
+    )
     columns = list(dict.fromkeys([*x_selected, *y_selected]))
     numeric = df.loc[:, columns].apply(pd.to_numeric, errors="coerce")
     valid_mask = np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1)
