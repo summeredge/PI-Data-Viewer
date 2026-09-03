@@ -179,11 +179,11 @@ def _render_trend_frame(
         end_time,
         max_points,
     )
-    statistics = calculate_statistics(display_frame.loc[:, selected])
+    statistics = calculate_statistics(full_frame.loc[:, selected])
     return (
         create_trend_figure(display_frame, selected, axis_mode),
         _statistics_records(statistics),
-        _statistics_cards(display_frame, selected),
+        _statistics_cards(full_frame, selected),
         f"趋势图已生成，原始 {len(full_frame)} 点，显示 {len(display_frame)} 点，"
         f"最大点数 {effective_max_points}。",
     )
@@ -485,21 +485,29 @@ def update_show_trend_state(viewer_state, selected_columns):
 
 def update_data_state(
     n_clicks,
-    source,
     upload_contents,
     clear_clicks,
+    source,
     tag_value,
     start_time,
     end_time,
     upload_filename,
     interval="1m",
 ):
-    if _triggered_id() == "clear-data-button":
+    triggered_id = _triggered_id()
+    if triggered_id == "clear-data-button":
         current = get_dataframe()
         if current is None or current.empty:
             return _viewer_state([], "尚未加载数据", False), []
         options, _, _ = _variable_selection_state(current, [])
         return _viewer_state(options, "请至少选择一个变量", True), []
+
+    if triggered_id == "query-button" and source != _PI_SOURCE:
+        return _viewer_state([], "请切换到 PI Server 模式", False), []
+    if triggered_id == "file-upload" and source != _FILE_SOURCE:
+        return _viewer_state([], "请切换到本地文件模式", False), []
+    if triggered_id not in {"query-button", "file-upload"}:
+        return _viewer_state([], "尚未加载数据", False), []
 
     status, options, selected, ready = _load_viewer(
         n_clicks,
@@ -764,9 +772,9 @@ def register_callbacks(app) -> None:
         Output("viewer-state", "data"),
         Output("variable-selector", "value"),
         Input("query-button", "n_clicks"),
-        Input("data-source", "value"),
         Input("file-upload", "contents"),
         Input("clear-data-button", "n_clicks"),
+        State("data-source", "value"),
         State("tag-input", "value"),
         State("start-time", "value"),
         State("end-time", "value"),

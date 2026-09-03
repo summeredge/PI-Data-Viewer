@@ -17,6 +17,7 @@ _PI_READER_EXE = "PIReader.exe"
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 MAX_TAGS = 8
 INTERVAL_OPTIONS = ("1m", "5m", "10m", "30m", "1h")
+PI_READER_TIMEOUT_SECONDS = 300
 
 
 def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
@@ -37,25 +38,32 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
         workdir = Path(directory)
         tags_path = workdir / "tags.txt"
         tags_path.write_text("\n".join(normalized_tags) + "\n", encoding="utf-8")
-        result = subprocess.run(
-            [
-                str(executable),
-                "--config",
-                str(config_path),
-                "--tags",
-                str(tags_path),
-                "--start",
-                start,
-                "--end",
-                end,
-                "--interval",
-                interval,
-            ],
-            cwd=workdir,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        command = [
+            str(executable),
+            "--config",
+            str(config_path),
+            "--tags",
+            str(tags_path),
+            "--start",
+            start,
+            "--end",
+            end,
+            "--interval",
+            interval,
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=PI_READER_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                "PIReader 查询超时，请缩短时间范围或检查 PI Server 连接"
+            ) from exc
 
     if result.returncode != 0:
         details = "\n".join(

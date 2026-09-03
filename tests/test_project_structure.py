@@ -6,6 +6,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_PATHS = (
     "app.py",
     "config/config.yaml",
+    "start.bat",
+    ".gitignore",
+    "PIReader/Program.cs",
+    "PIReader/build.bat",
+    "PIReader.Tests/PIReader.Tests.csproj",
+    "PIReader.Tests/Program.cs",
     "backend/__init__.py",
     "backend/file_reader.py",
     "backend/pi_reader.py",
@@ -55,3 +61,19 @@ def test_dash_app_imports():
 
     assert app.title == "PI Data Viewer"
     assert app.layout is not None
+
+
+def test_project_ignore_and_start_paths():
+    ignored = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert "__pycache__/" in ignored
+    assert "*.py[cod]" in ignored
+    assert ".pytest_cache/" in ignored
+    assert "PIReader/PIReader.exe" in ignored
+    assert "PIReader/config.txt" not in ignored
+    assert "PIReader/tags.txt" not in ignored
+
+    start = (PROJECT_ROOT / "start.bat").read_text(encoding="utf-8")
+    assert 'PI_CONFIG=%~dp0PIReader\\config.txt' in start
+    assert 'PI_READER_EXE=%~dp0PIReader\\PIReader.exe' in start
+    assert "D:\\" not in start
+    assert "C:\\Users\\" not in start

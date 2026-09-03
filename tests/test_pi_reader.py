@@ -17,7 +17,8 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
     monkeypatch.setenv("PI_CONFIG", str(config_path))
     monkeypatch.setenv("PI_READER_EXE", str(executable))
 
-    def fake_run(command, *, cwd, capture_output, text, check):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout):
+        assert timeout == pi_reader.PI_READER_TIMEOUT_SECONDS
         assert command == [
             str(executable.resolve()),
             "--config",
@@ -131,4 +132,26 @@ def test_read_pi_data_rejects_unsupported_interval(monkeypatch, tmp_path):
             datetime(2024, 1, 1),
             datetime(2024, 1, 1, 0, 1),
             "2m",
+        )
+
+
+def test_read_pi_data_converts_timeout_to_user_error(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text("shared PIExport-format config", encoding="utf-8")
+    executable = tmp_path / "PIReader.exe"
+    executable.write_bytes(b"test executable")
+    monkeypatch.setenv("PI_CONFIG", str(config_path))
+    monkeypatch.setenv("PI_READER_EXE", str(executable))
+
+    def fake_run(command, **kwargs):
+        assert kwargs["timeout"] == pi_reader.PI_READER_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(pi_reader.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="PIReader 查询超时"):
+        pi_reader.read_pi_data(
+            ["TAG_A"],
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 1, 0, 1),
         )

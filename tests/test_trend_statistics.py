@@ -186,6 +186,60 @@ def test_render_viewer_waits_for_explicit_show_click_and_limits_points(monkeypat
     assert "原始 140 点，显示 100 点" in status
 
 
+def test_render_trend_uses_full_filtered_frame_for_statistics():
+    frame = pd.DataFrame(
+        {"A": np.arange(150, dtype=float) ** 2},
+        index=pd.date_range("2024-01-01", periods=150, freq="min"),
+    )
+
+    figure, records, cards, _ = viewer._render_trend_frame(
+        frame, ["A"], max_points=100
+    )
+
+    expected = calculate_series_summary(frame["A"])
+    assert len(figure.data[0].x) == 100
+    assert records[0]["count"] == expected["count"] == 150
+    assert records[0]["mean"] == expected["mean"]
+    assert records[0]["std"] == pytest.approx(np.std(frame["A"], ddof=1))
+    assert records[0]["min"] == expected["min"]
+    assert records[0]["max"] == expected["max"]
+    rows = {
+        row.children[0].children: row.children[1].children
+        for row in cards[0].children[1].children
+    }
+    assert rows["极差"] == viewer._format_stat_value(expected["range"])
+    assert rows["中位数"] == viewer._format_stat_value(expected["median"])
+    assert rows["有效点数/占比"] == "150 / 100.0%"
+
+
+def test_render_trend_statistics_use_filtered_full_frame_not_original_frame():
+    frame = pd.DataFrame(
+        {"A": np.arange(200, dtype=float) ** 2},
+        index=pd.date_range("2024-01-01", periods=200, freq="min"),
+    )
+
+    figure, records, cards, _ = viewer._render_trend_frame(
+        frame,
+        ["A"],
+        start_time="2024-01-01T00:30:00",
+        end_time="2024-01-01T02:49:00",
+        max_points=100,
+    )
+
+    filtered = frame.iloc[30:170]
+    expected = calculate_series_summary(filtered["A"])
+    assert len(figure.data[0].x) == 100
+    assert records[0]["count"] == expected["count"] == 140
+    assert records[0]["mean"] == expected["mean"]
+    rows = {
+        row.children[0].children: row.children[1].children
+        for row in cards[0].children[1].children
+    }
+    assert rows["有效点数/占比"] == "140 / 100.0%"
+    assert rows["最小值"] == viewer._format_stat_value(expected["min"])
+    assert rows["最大值"] == viewer._format_stat_value(expected["max"])
+
+
 def test_trend_time_controls_follow_loaded_frame():
     frame = pd.DataFrame(
         {"A": [1.0, 2.0]},

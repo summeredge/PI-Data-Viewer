@@ -180,6 +180,61 @@ def test_pi_query_passes_selected_interval_to_reader(monkeypatch):
     ]
 
 
+def test_data_source_switch_does_not_reload_or_parse_data(monkeypatch):
+    frame = pd.DataFrame(
+        {"TAG_A": [1.0]},
+        index=pd.date_range("2024-01-01", periods=1, freq="min"),
+    )
+    pi_calls = []
+    file_calls = []
+    triggered = ["query-button"]
+
+    def fake_pi(*args):
+        pi_calls.append(args)
+        return frame
+
+    def fake_file(*args):
+        file_calls.append(args)
+        return frame
+
+    monkeypatch.setattr(viewer, "read_pi_data", fake_pi)
+    monkeypatch.setattr(viewer, "read_local_file", fake_file)
+    monkeypatch.setattr(viewer, "_triggered_id", lambda: triggered[0])
+
+    viewer.update_data_state(
+        1, None, 0, "pi", "TAG_A", "2024-01-01", "2024-01-01 00:01", None
+    )
+    assert len(pi_calls) == 1
+
+    triggered[0] = "data-source"
+    viewer.update_data_state(
+        1, "upload-contents", 0, "file", "TAG_A", "2024-01-01", "2024-01-01 00:01", "sample.csv"
+    )
+    triggered[0] = "data-source"
+    viewer.update_data_state(
+        1, "upload-contents", 0, "pi", "TAG_A", "2024-01-01", "2024-01-01 00:01", "sample.csv"
+    )
+    assert len(pi_calls) == 1
+    assert file_calls == []
+
+    triggered[0] = "file-upload"
+    viewer.update_data_state(
+        1, "upload-contents", 0, "file", "TAG_A", "2024-01-01", "2024-01-01 00:01", "sample.csv"
+    )
+    assert len(file_calls) == 1
+
+
+def test_data_loading_callback_uses_data_source_as_state():
+    from app import app
+
+    callback = next(
+        entry for entry in app.callback_map.values()
+        if entry["callback"].__name__ == "update_data_state"
+    )
+    assert "data-source" not in {item["id"] for item in callback["inputs"]}
+    assert "data-source" in {item["id"] for item in callback["state"]}
+
+
 def test_graphics_modules_do_not_read_from_pi():
     project_root = Path(__file__).resolve().parents[1]
     paths = [

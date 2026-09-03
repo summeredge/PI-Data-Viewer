@@ -30,7 +30,9 @@ $env:PI_READER_EXE = "C:\path\to\PIReader\PIReader.exe"
 `PI_CONFIG` 指向现有 PIExport 格式的配置文件（`Server/User/Password/Interval/BlockDays`）；Viewer 只保存路径，不复制或写入 PI 密码和 Server 参数。
 Viewer 每次请求只在临时目录生成 `tags.txt`，并通过 stdout 接收 PIReader JSON。
 
-PIReader 的 C# 项目和无 PI Server 依赖的协议测试分别位于 `PIReader/` 和 `PIReader.Tests/`。项目引用安装环境提供的 `OSIsoft.PISDK`、`OSIsoft.PISDKCommon`、`OSIsoft.PITimeServer` interop，需在 Windows PI SDK 环境中用 .NET Framework/MSBuild 构建。
+`PIReader/Program.cs` 是 PIReader 的唯一源码基线；`PIReader/PIReader.exe` 是本地构建产物，不是源码，已不纳入 Git 跟踪。修改 `Program.cs` 后必须在 Windows PI SDK 环境中重新运行 `PIReader\build.bat`。Web PI 模式必须使用与当前源码对应的 `PIReader.exe`；缺少该文件时 `start.bat` 仍可启动 CSV/Excel Viewer，但 PI 模式需要先构建。
+
+PIReader 的 C# 项目和不连接 PI Server 的协议测试分别位于 `PIReader/` 和 `PIReader.Tests/`。项目引用安装环境提供的 `OSIsoft.PISDK`、`OSIsoft.PISDKCommon`、`OSIsoft.PITimeServer` interop，需在 Windows PI SDK 环境中用 .NET Framework/MSBuild 构建。
 
 统一读取结果为以 `DatetimeIndex`（名称为 `Timestamp`）为索引、数值列为变量的 pandas DataFrame。PI Server 使用 `read_pi_data(tags, start_time, end_time, interval)`，采样间隔可选 `1m`、`5m`、`10m`、`30m`、`1h`；本地上传文件使用 `read_local_file(contents, filename)`。
 

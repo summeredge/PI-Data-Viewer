@@ -56,7 +56,7 @@ def create_trend_figure(
 
     y_axes = {"yaxis": {"title": "Value", "fixedrange": True}}
     if axis_mode == "independent":
-        y_axes["yaxis"]["title"] = str(columns[0]) if columns else "Value"
+        y_axes["yaxis"]["title"] = str(columns[0]) if len(columns) else "Value"
         for index, column in enumerate(columns[1:], start=2):
             y_axes[f"yaxis{index}"] = {
                 "title": str(column) if index == 2 else None,
