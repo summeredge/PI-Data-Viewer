@@ -8,6 +8,7 @@ C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe ^
 /reference:"C:\Program Files (x86)\PIPC\PISDK\PublicAssemblies\OSIsoft.PITimeServer.dll" ^
 /reference:System.Web.Extensions.dll ^
 /out:PIReader.exe ^
+TimeExpressionParser.cs ^
 Program.cs
 
 pause

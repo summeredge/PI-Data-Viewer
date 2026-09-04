@@ -15,6 +15,7 @@ namespace PIReader.Tests
             try
             {
                 TestReaderOptions();
+                TestTimeExpressionParser();
                 TestConfigAndTagsParsing();
                 TestResponseSerialization();
                 TestNormalizeValue();
@@ -107,6 +108,32 @@ namespace PIReader.Tests
             }
         }
 
+        private static void TestTimeExpressionParser()
+        {
+            var now = new DateTime(2026, 9, 4, 12, 0, 0);
+            Assert(
+                TimeExpressionParser.Parse("2026-09-01 00:00:00") == new DateTime(2026, 9, 1),
+                "fixed time was not parsed");
+            Assert(TimeExpressionParser.Parse("*", () => now) == now, "current time was not provided");
+
+            var before = DateTime.Now;
+            var current = TimeExpressionParser.Parse("*");
+            var after = DateTime.Now;
+            Assert(current >= before && current <= after, "current time is not near system time");
+
+            Assert(TimeExpressionParser.Parse("*-1h", () => now) == now.AddHours(-1), "hours offset is invalid");
+            Assert(TimeExpressionParser.Parse("*-30m", () => now) == now.AddMinutes(-30), "minutes offset is invalid");
+            Assert(TimeExpressionParser.Parse("*-7d", () => now) == now.AddDays(-7), "days offset is invalid");
+            Assert(TimeExpressionParser.Parse("*+2h", () => now) == now.AddHours(2), "positive offset is invalid");
+            Assert(TimeExpressionParser.Parse("*+15s", () => now) == now.AddSeconds(15), "seconds offset is invalid");
+            Assert(TimeExpressionParser.Parse("*-2w", () => now) == now.AddDays(-14), "weeks offset is invalid");
+
+            foreach (var expression in new[] { "abc", "*-xyz", "*-1" })
+            {
+                ExpectInvalidTimeExpression(expression);
+            }
+        }
+
         private static void TestResponseSerialization()
         {
             var tags = new List<string> { "TAG_A", "TAG_B" };
@@ -167,6 +194,24 @@ namespace PIReader.Tests
             }
 
             throw new InvalidOperationException("FAIL: invalid arguments were accepted");
+        }
+
+        private static void ExpectInvalidTimeExpression(string expression)
+        {
+            try
+            {
+                TimeExpressionParser.Parse(expression, () => new DateTime(2026, 9, 4));
+            }
+            catch (FormatException exception)
+            {
+                Assert(
+                    exception.Message.IndexOf("Invalid time expression: " + expression, StringComparison.Ordinal) >= 0,
+                    "invalid time expression message is unclear");
+                Assert(exception.Message.IndexOf("Supported:", StringComparison.Ordinal) >= 0, "supported formats are missing");
+                return;
+            }
+
+            throw new InvalidOperationException("FAIL: invalid time expression was accepted");
         }
 
         private static Dictionary<string, object> Parse(string json)

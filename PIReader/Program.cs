@@ -275,16 +275,18 @@ namespace PIReader
 
         public List<PiSample> Read(string tag, string startTimeText, string endTimeText)
         {
-            PITimeFormat startTime = new PITimeFormatClass();
-            startTime.InputString = startTimeText;
-            PITimeFormat endTime = new PITimeFormatClass();
-            endTime.InputString = endTimeText;
+            var startTime = TimeExpressionParser.Parse(startTimeText, GetCurrentServerTime);
+            var endTime = TimeExpressionParser.Parse(endTimeText, GetCurrentServerTime);
+            if (endTime <= startTime)
+            {
+                throw new ArgumentException("End time must be later than start time.");
+            }
 
             PIPoint point = _server.PIPoints[tag];
             IPIData2 data = (IPIData2)point.Data;
             PIValues values = data.InterpolatedValues2(
-                startTime.LocalDate,
-                endTime.LocalDate,
+                startTime,
+                endTime,
                 _interval);
 
             var samples = new List<PiSample>();
@@ -294,6 +296,20 @@ namespace PIReader
             }
 
             return samples;
+        }
+
+        private DateTime GetCurrentServerTime()
+        {
+            try
+            {
+                PITimeFormat currentTime = new PITimeFormatClass();
+                currentTime.InputString = "*";
+                return currentTime.LocalDate;
+            }
+            catch (Exception)
+            {
+                return DateTime.Now;
+            }
         }
 
         public void Dispose()

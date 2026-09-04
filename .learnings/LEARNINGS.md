@@ -1,5 +1,23 @@
 # Learnings
 
+## [LRN-20260904-001] Dash 下拉控件的实际高度
+
+**Priority**: low
+**Status**: resolved
+**Area**: tools
+
+### 内容
+Dash 4 的 `dcc.Dropdown` 组件配置中的高度不一定直接作用于实际渲染的下拉根节点；需要在所属页面范围内用 CSS 选择器补充 `height` 和 `min-height`，才能保证盒模型尺寸一致。
+
+### 建议修复
+涉及控件尺寸时，同时检查浏览器实际盒模型，不要只验证 Dash layout JSON 中的 `style` 属性。
+
+### 元数据
+- Source: task_review
+- See Also: none
+
+---
+
 ## [LRN-20260903-001] Dash 4.4.1 原生文件控件
 
 **Priority**: medium

@@ -280,11 +280,12 @@ def test_trend_controls_are_compact_and_aligned():
     assert trend_controls.style["gridTemplateColumns"] == "repeat(5, minmax(0, 1fr))"
     assert trend_controls.children[3].children[1].value == "independent"
     assert all(
-        child.children[1].style["height"] == "38px"
+        child.children[1].style["height"] == "32px"
         for child in trend_controls.children[:4]
     )
     assert trend_controls.children[4].style["height"] == "32px"
     assert trend_controls.children[4].style["minHeight"] == "32px"
+    assert "marginBottom" not in trend_controls.children[4].style
     detail_section = trend_tab.children[2]
     assert detail_section.className == "detail-section"
     assert len(detail_section.children) == 1

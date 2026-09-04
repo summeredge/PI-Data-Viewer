@@ -9,6 +9,7 @@ from backend.dataframe_store import store_dataframe
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_TOTAL_SCATTER_POINTS,
+    calculate_scatter_dimensions,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -39,6 +40,7 @@ def test_scatter_layout_has_controls_button_and_graph():
     assert len(title_row.children) == 1
     assert button.children == "显示矩阵"
     assert button.style["width"] == "100px"
+    assert button.style["height"] == "38px"
     styles = (Path(__file__).parents[1] / "assets" / "styles.css").read_text(
         encoding="utf-8"
     )
@@ -80,8 +82,18 @@ def test_scatter_graph_disables_scroll_zoom():
     assert graph.responsive is True
 
 
-def test_scatter_graph_style_fills_container_and_stays_square():
-    expected = {
+def test_scatter_graph_style_adapts_only_for_three_by_three():
+    fixed_single = {
+        "width": "420px",
+        "maxWidth": "100%",
+        "height": "420px",
+    }
+    fixed_two_by_two = {
+        "width": "840px",
+        "maxWidth": "100%",
+        "height": "840px",
+    }
+    adaptive = {
         "width": "100%",
         "maxWidth": "100%",
         "height": "auto",
@@ -89,10 +101,13 @@ def test_scatter_graph_style_fills_container_and_stays_square():
     }
     assert viewer.update_scatter_graph_style(
         "scatter-tab", "X1", None, None, "Y1", None, None
-    ) == expected
+    ) == fixed_single
+    assert viewer.update_scatter_graph_style(
+        "scatter-tab", "X1", "X2", None, "Y1", "Y2", None
+    ) == fixed_two_by_two
     assert viewer.update_scatter_graph_style(
         "scatter-tab", "X1", "X2", "X3", "Y1", "Y2", "Y3"
-    ) == expected
+    ) == adaptive
 
 
 def test_scatter_figure_dimensions_scale_with_matrix_size():
@@ -108,11 +123,12 @@ def test_scatter_figure_dimensions_scale_with_matrix_size():
         frame, ["X1", "X2", "X3"], ["Y1", "Y2", "Y3"]
     )
 
-    assert single.layout.autosize is True
-    assert single.layout.width is None
-    assert single.layout.height is None
-    assert two_by_two.layout.width is None
-    assert two_by_two.layout.height is None
+    assert calculate_scatter_dimensions(1, 1) == (420, 420)
+    assert calculate_scatter_dimensions(2, 2) == (840, 840)
+    assert single.layout.width == 420
+    assert single.layout.height == 420
+    assert two_by_two.layout.width == 840
+    assert two_by_two.layout.height == 840
     assert matrix.layout.width is None
     assert matrix.layout.height is None
     x_domain = matrix.layout.xaxis.domain

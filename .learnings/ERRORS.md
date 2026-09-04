@@ -1,5 +1,32 @@
 # Errors
 
+## [ERR-20260904-001] PowerShell 变量赋值调用语法错误
+
+**Priority**: low
+**Status**: resolved
+**Area**: tools
+
+### 摘要
+环境校验命令把 PowerShell 变量赋值写成了调用表达式，导致解释器和依赖检查未执行。
+
+### 错误信息
+```text
+The expression after '&' in a pipeline element produced an object that was not valid.
+```
+
+### 上下文
+- 在 PI Data Viewer 中准备使用项目专用 Python 解释器运行测试。
+- 错误写法为 `& $python = '...'; & $python -c ...`。
+
+### 建议修复
+先用 `$python = '...'` 赋值，再单独使用 `& $python -c ...` 调用解释器。
+
+### 元数据
+- Reproducible: yes
+- See Also: none
+
+---
+
 ## [ERR-20260902-001] In-app browser file chooser timeout
 
 **Priority**: low

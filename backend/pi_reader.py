@@ -27,7 +27,7 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
         raise ValueError(f"interval must be one of: {', '.join(INTERVAL_OPTIONS)}")
     start = _format_time(start_time, "start_time")
     end = _format_time(end_time, "end_time")
-    if end <= start:
+    if not start.startswith("*") and not end.startswith("*") and end <= start:
         raise ValueError("end_time must be later than start_time")
 
     config_path = _config_path()
@@ -105,6 +105,14 @@ def normalize_tags(tags) -> list[str]:
 
 
 def _format_time(value, name: str) -> str:
+    if isinstance(value, str):
+        value = value.strip()
+        if value:
+            if value.startswith("*"):
+                return value
+        else:
+            raise ValueError(f"{name} is not a valid datetime")
+
     try:
         timestamp = pd.Timestamp(value)
     except (TypeError, ValueError, OverflowError) as exc:

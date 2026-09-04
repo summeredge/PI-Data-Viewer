@@ -14,6 +14,7 @@ from backend.statistics import calculate_series_summary, calculate_statistics
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_SCATTER_VARIABLES,
+    calculate_scatter_dimensions,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -56,7 +57,7 @@ _PI_QUERY_STYLE = {
 _FILE_UPLOAD_STYLE = {
     "display": "none",
 }
-_TREND_CONTROL_STYLE = {"width": "100%", "height": "38px"}
+_TREND_CONTROL_STYLE = {"width": "100%", "height": "32px"}
 _UPLOAD_CLIENTSIDE_FUNCTION = """
 async function(n_clicks) {
     if (!n_clicks) {
@@ -710,11 +711,20 @@ def update_scatter_graph_style(
     y_2=None,
     y_3=None,
 ):
+    rows = len(_scatter_columns(y_1, y_2, y_3))
+    cols = len(_scatter_columns(x_1, x_2, x_3))
+    if (rows, cols) == (3, 3):
+        return {
+            "width": "100%",
+            "maxWidth": "100%",
+            "height": "auto",
+            "aspectRatio": "1 / 1",
+        }
+    width, height = calculate_scatter_dimensions(rows, cols)
     return {
-        "width": "100%",
+        "width": f"{width}px",
         "maxWidth": "100%",
-        "height": "auto",
-        "aspectRatio": "1 / 1",
+        "height": f"{height}px",
     }
 
 
@@ -801,7 +811,7 @@ layout = html.Div(
                                         dcc.Input(
                                             id="start-time",
                                             type="text",
-                                            placeholder="YYYY-MM-DD HH:MM:SS",
+                                            placeholder="支持:\n2026-09-01 00:00:00\n*\n*-1h",
                                             className="text-input",
                                             style={"width": "100%"},
                                         ),
@@ -814,7 +824,7 @@ layout = html.Div(
                                         dcc.Input(
                                             id="end-time",
                                             type="text",
-                                            placeholder="YYYY-MM-DD HH:MM:SS",
+                                            placeholder="支持:\n2026-09-01 00:00:00\n*\n*-1h",
                                             className="text-input",
                                             style={"width": "100%"},
                                         ),
@@ -994,7 +1004,9 @@ layout = html.Div(
                                                     type="button",
                                                     className="primary-button",
                                                     style=_TREND_CONTROL_STYLE
-                                                    | {"height": "32px", "minHeight": "32px"},
+                                                    | {
+                                                        "minHeight": "32px",
+                                                    },
                                                 ),
                                             ],
                                             id="trend-controls",
@@ -1076,7 +1088,7 @@ layout = html.Div(
                                                     type="button",
                                                     className="primary-button",
                                                     style=_TREND_CONTROL_STYLE
-                                                    | {"width": "100px"},
+                                                    | {"width": "100px", "height": "38px"},
                                                 ),
                                             ],
                                             className="scatter-title-row",
@@ -1170,10 +1182,9 @@ layout = html.Div(
                                                             "scrollZoom": False,
                                                         },
                                                         style={
-                                                            "width": "100%",
+                                                            "width": "420px",
                                                             "maxWidth": "100%",
-                                                            "height": "auto",
-                                                            "aspectRatio": "1 / 1",
+                                                            "height": "420px",
                                                         },
                                                     ),
                                                 ],

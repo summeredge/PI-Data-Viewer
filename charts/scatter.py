@@ -13,6 +13,16 @@ DEFAULT_MAX_SCATTER_POINTS = 100_000
 MAX_TOTAL_SCATTER_POINTS = 300_000
 
 
+def calculate_scatter_dimensions(rows: int, cols: int) -> tuple[int, int]:
+    """Return the fixed dimensions used by non-3x3 scatter matrices."""
+
+    if int(rows) == int(cols) == 2:
+        return 840, 840
+    width = min(840, max(420, 280 * max(1, int(cols))))
+    height = min(720, max(420, 240 * max(1, int(rows))))
+    return width, height
+
+
 def _selected_columns(columns, axis_label: str) -> list:
     if not isinstance(columns, (list, tuple)):
         raise ValueError(f"请至少选择一个{axis_label}变量")
@@ -93,11 +103,17 @@ def create_scatter_figure(
     x_selected, y_selected, _, display = prepare_scatter_frame(
         df, x_columns, y_columns, max_points
     )
+    rows = len(y_selected)
+    cols = len(x_selected)
+    subplot_options = (
+        {"horizontal_spacing": 0.04, "vertical_spacing": 0.04}
+        if (rows, cols) == (3, 3)
+        else {}
+    )
     figure = make_subplots(
-        rows=len(y_selected),
-        cols=len(x_selected),
-        horizontal_spacing=0.04,
-        vertical_spacing=0.04,
+        rows=rows,
+        cols=cols,
+        **subplot_options,
     )
     customdata = [str(value) for value in display.index]
 
@@ -132,6 +148,13 @@ def create_scatter_figure(
         showlegend=False,
         margin={"l": 60, "r": 60, "t": 60, "b": 60},
     )
+    if (rows, cols) != (3, 3):
+        width, height = calculate_scatter_dimensions(rows, cols)
+        figure.update_layout(
+            width=width,
+            height=height,
+            margin={"l": 60, "r": 30, "t": 55, "b": 60},
+        )
     return figure
 
 

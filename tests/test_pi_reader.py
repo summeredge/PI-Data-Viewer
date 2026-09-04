@@ -69,6 +69,38 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
     assert pd.isna(frame.loc[pd.Timestamp("2024-01-01 00:01:00"), "TAG_A"])
 
 
+def test_read_pi_data_forwards_pi_time_expressions(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text("shared PIExport-format config", encoding="utf-8")
+    executable = tmp_path / "PIReader.exe"
+    executable.write_bytes(b"test executable")
+    monkeypatch.setenv("PI_CONFIG", str(config_path))
+    monkeypatch.setenv("PI_READER_EXE", str(executable))
+
+    def fake_run(command, **kwargs):
+        assert command[command.index("--start") + 1] == "*-1h"
+        assert command[command.index("--end") + 1] == "*"
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            '{"columns": ["Timestamp", "TAG_A"], "data": []}',
+            "",
+        )
+
+    monkeypatch.setattr(pi_reader.subprocess, "run", fake_run)
+
+    frame = pi_reader.read_pi_data(["TAG_A"], "*-1h", "*")
+
+    assert frame.empty
+    assert list(frame.columns) == ["TAG_A"]
+
+
+def test_pi_time_placeholders_document_supported_expressions():
+    source = (Path(__file__).parents[1] / "pages" / "viewer.py").read_text(encoding="utf-8")
+
+    assert source.count('placeholder="支持:\\n2026-09-01 00:00:00\\n*\\n*-1h"') == 2
+
+
 def test_pi_reader_production_path_does_not_create_tags_file():
     source = Path(pi_reader.__file__).read_text(encoding="utf-8")
 
