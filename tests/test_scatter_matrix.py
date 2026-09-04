@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -33,17 +35,25 @@ def test_scatter_layout_has_controls_button_and_graph():
 
     scatter_tab = viewer.layout.children[2].children[1].children[0].children[1]
     title_row = scatter_tab.children[0]
-    button = title_row.children[1]
+    button = title_row.children[0]
     assert title_row.className == "scatter-title-row"
-    assert title_row.children[0].children == "XY 散点矩阵"
+    assert len(title_row.children) == 1
     assert button.children == "显示矩阵"
-    assert button.style["width"] == "90px"
+    assert button.style["width"] == "100px"
+    styles = (Path(__file__).parents[1] / "assets" / "styles.css").read_text(
+        encoding="utf-8"
+    )
+    assert "grid-template-columns: repeat(3, minmax(0, 230px));" in styles
 
 
 def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter", "Box Plot"]
+    assert not any(
+        getattr(component, "className", None) == "section-title"
+        for component in _components(tabs)
+    )
     trend_ids = {
         component.id
         for component in _components(tabs.children[0])

@@ -21,6 +21,12 @@ def test_create_trend_figure_preserves_datetime_index_and_multiple_tags():
     assert figure.layout.xaxis.minallowed == index[0]
     assert figure.layout.xaxis.maxallowed == index[-1]
     assert figure.layout.yaxis.fixedrange is True
+    assert figure.layout.legend.orientation == "h"
+    assert figure.layout.legend.x == 0
+    assert figure.layout.legend.xanchor == "left"
+    assert figure.layout.legend.y == -0.18
+    assert figure.layout.legend.yanchor == "top"
+    assert figure.layout.margin.b == 90
 
 
 def test_create_trend_figure_only_draws_selected_columns():
@@ -256,7 +262,7 @@ def test_trend_time_controls_follow_loaded_frame():
 
 def test_trend_controls_are_compact_and_aligned():
     trend_tab = viewer.layout.children[2].children[1].children[0].children[0]
-    trend_controls = trend_tab.children[1]
+    trend_controls = trend_tab.children[0]
 
     control_ids = [
         *(child.children[1].id for child in trend_controls.children[:4]),
@@ -272,11 +278,17 @@ def test_trend_controls_are_compact_and_aligned():
         "show-trend-button",
     ]
     assert trend_controls.style["gridTemplateColumns"] == "repeat(5, minmax(0, 1fr))"
+    assert trend_controls.children[3].children[1].value == "independent"
     assert all(
         child.children[1].style["height"] == "38px"
         for child in trend_controls.children[:4]
     )
-    assert trend_controls.children[4].style["height"] == "38px"
+    assert trend_controls.children[4].style["height"] == "32px"
+    assert trend_controls.children[4].style["minHeight"] == "32px"
+    detail_section = trend_tab.children[2]
+    assert detail_section.className == "detail-section"
+    assert len(detail_section.children) == 1
+    assert detail_section.children[0].className == "detail-content"
 
 
 def test_trend_max_points_has_new_default_and_upper_bound():
@@ -287,7 +299,7 @@ def test_trend_max_points_has_new_default_and_upper_bound():
     assert viewer._resolve_max_plot_points(135_000, 1) == 135_000
     assert viewer._resolve_max_plot_points(135_001, 1) == 135_000
     trend_tab = viewer.layout.children[2].children[1].children[0].children[0]
-    max_points_input = trend_tab.children[1].children[2].children[1]
+    max_points_input = trend_tab.children[0].children[2].children[1]
     assert max_points_input.value == 45_000
     assert max_points_input.max == 135_000
 

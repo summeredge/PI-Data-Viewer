@@ -1,13 +1,13 @@
 :root {
-  --page-bg: #f5f7f8;
+  --page-bg: #f2f5f7;
   --surface: #ffffff;
-  --surface-muted: #f7fafb;
-  --border: #d7e0e5;
-  --border-strong: #b7c4cb;
-  --text: #1f2933;
-  --text-muted: #5b6872;
-  --accent: #176b87;
-  --accent-dark: #0f5268;
+  --surface-muted: #f7f9fb;
+  --border: #dce3e8;
+  --border-strong: #b9c6ce;
+  --text: #24313b;
+  --text-muted: #65737d;
+  --accent: #1769b0;
+  --accent-dark: #12538d;
   --focus: #b54708;
   --danger: #b42318;
   --success: #146c43;
@@ -20,11 +20,13 @@
 html,
 body {
   min-width: 320px;
+  min-height: 100%;
   margin: 0;
   background: var(--page-bg);
   color: var(--text);
   font-family: Arial, sans-serif;
   line-height: 1.45;
+  overflow-x: hidden;
 }
 
 button,
@@ -47,43 +49,58 @@ textarea,
 }
 
 .page-shell {
-  width: min(1480px, 100%);
-  margin: 0 auto;
-  padding: 32px clamp(16px, 4vw, 48px) 48px;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
 }
 
 .page-header {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  margin: 0;
+  padding: 0 24px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
 .eyebrow {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  display: none;
 }
 
 .page-header h1 {
-  margin: 5px 0 7px;
-  font-size: clamp(28px, 4vw, 40px);
-  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.page-header h1::before {
+  content: "⌁";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 9px;
+  color: var(--accent);
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .page-description {
-  max-width: 720px;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 15px;
+  display: none;
 }
 
 .app-layout {
   display: grid !important;
-  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-  min-height: 400px;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
+  min-height: calc(100vh - 58px);
 }
 
 .parameter-panel,
@@ -93,13 +110,17 @@ textarea,
 
 .parameter-panel {
   position: sticky;
-  top: 16px;
+  top: 0;
+  height: calc(100vh - 58px);
+  max-height: calc(100vh - 58px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  gap: 11px;
+  padding: 18px 14px 24px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
   background: var(--surface);
 }
 
@@ -112,14 +133,17 @@ textarea,
 
 .panel-title {
   margin: 0;
-  font-size: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  letter-spacing: 0.01em;
 }
 
 .panel-subtitle {
-  margin: 12px 0 0;
-  padding-top: 16px;
+  margin: 8px 0 0;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .field-label-text,
@@ -168,6 +192,11 @@ textarea,
   gap: 5px;
   color: var(--text);
   font-size: 13px;
+}
+
+.source-switch input,
+.variable-checklist input {
+  accent-color: var(--accent);
 }
 
 .text-input,
@@ -255,7 +284,7 @@ textarea:disabled,
 
 .file-upload-section {
   min-width: 0;
-  padding: 14px;
+  padding: 12px;
   border: 1px dashed var(--border-strong);
   border-radius: 6px;
   background: var(--surface-muted);
@@ -283,9 +312,13 @@ textarea:disabled,
 }
 
 .variable-checklist {
-  max-height: 220px;
+  min-height: 80px;
+  max-height: min(240px, 32vh);
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 6px 4px 6px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfd;
 }
 
 .variable-checklist label {
@@ -326,22 +359,24 @@ textarea:disabled,
 
 .viewer-tabs-parent {
   min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .viewer-tabs-content {
   min-width: 0;
-  padding: 24px;
+  padding: 18px 20px 24px;
 }
 
 .viewer-tab {
-  padding: 13px 16px;
+  min-height: 50px;
+  padding: 14px 24px;
   border: 0 !important;
   border-bottom: 2px solid transparent !important;
   background: var(--surface);
   color: var(--text-muted);
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -351,8 +386,8 @@ textarea:disabled,
 }
 
 .section-title {
-  margin: 0 0 16px;
-  font-size: 22px;
+  margin: 0 0 14px;
+  font-size: 18px;
 }
 
 .section-subtitle {
@@ -361,10 +396,10 @@ textarea:disabled,
 }
 
 .log-section {
-  margin-top: 20px;
-  padding: 20px;
+  margin: 0 20px 24px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--surface);
 }
 
@@ -402,13 +437,13 @@ textarea:disabled,
 }
 
 .trend-controls {
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(132px, 0.65fr) minmax(132px, 0.65fr) minmax(140px, 0.75fr) !important;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(100px, 0.72fr) minmax(110px, 0.85fr) minmax(126px, 0.9fr) !important;
   grid-template-areas: "start end max axis action";
-  margin-bottom: 20px;
-  padding: 12px;
+  margin-bottom: 12px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--surface-muted);
+  background: var(--surface);
 }
 
 .trend-controls > .trend-basic-field:nth-child(1) {
@@ -436,12 +471,14 @@ textarea:disabled,
   position: relative;
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--surface);
+  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.04);
 }
 
 .visualization-frame {
-  min-height: 360px;
+  min-height: clamp(320px, 48vh, 560px);
+  padding: 8px 10px 0;
   overflow: hidden;
 }
 
@@ -456,35 +493,41 @@ textarea:disabled,
 .trend-graph {
   width: 100%;
   min-width: 0;
-  height: clamp(360px, 52vw, 600px) !important;
+  height: clamp(320px, 48vh, 560px) !important;
 }
 
 .detail-section {
-  margin-top: 20px;
+  margin-top: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--surface);
-}
-
-.detail-section > .details-summary {
-  display: block;
-  padding: 14px 18px;
+  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.03);
 }
 
 .detail-content {
-  padding: 0 18px 18px;
-  border-top: 1px solid var(--border);
+  padding: 14px 16px 16px;
 }
 
 .statistics-cards {
   min-width: 0;
+  align-items: stretch !important;
 }
 
 .statistics-card {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
-  padding: 14px;
+  min-height: 300px;
+  height: 100%;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.03);
+}
+
+.statistics-card h3 {
+  min-height: 2.7em;
+  margin-bottom: 10px !important;
+  font-size: 14px !important;
+  line-height: 1.35;
 }
 
 .statistics-card .js-plotly-plot {
@@ -493,7 +536,7 @@ textarea:disabled,
 
 .scatter-axis-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 230px));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -515,18 +558,29 @@ textarea:disabled,
 }
 
 #show-scatter-button {
-  width: 90px !important;
+  width: 100px !important;
   margin-top: 0;
 }
 
 .scatter-visualization-frame {
-  min-height: 420px;
-  margin-top: 18px;
+  min-height: clamp(320px, 48vh, 560px);
+  margin-top: 14px;
+  padding: 8px;
   overflow-x: auto;
 }
 
 .scatter-graph {
   display: block;
+}
+
+.boxplot-visualization-frame {
+  margin-top: 14px;
+}
+
+.boxplot-graph {
+  width: 100%;
+  min-width: 0;
+  height: clamp(320px, 48vh, 560px) !important;
 }
 
 .loading-message {
@@ -546,6 +600,8 @@ textarea:disabled,
 
   .parameter-panel {
     position: static;
+    height: auto;
+    max-height: none;
   }
 
   .viewer-tabs-content {
@@ -562,19 +618,31 @@ textarea:disabled,
   }
 }
 
+@media (min-width: 901px) and (max-width: 1100px) {
+  .trend-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-areas: "start end" "max axis" "action action";
+  }
+}
+
 @media (max-width: 640px) {
   .page-shell {
-    padding: 22px 12px 32px;
+    padding: 0;
   }
 
   .page-header {
-    margin-bottom: 16px;
-    padding-bottom: 16px;
+    min-height: 54px;
+    padding: 0 14px;
   }
 
   .viewer-tabs-content,
   .log-section {
     padding: 14px;
+  }
+
+  .log-section {
+    margin-right: 14px;
+    margin-left: 14px;
   }
 
   .viewer-tab {

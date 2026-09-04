@@ -72,8 +72,15 @@ def create_trend_figure(
         hovermode="x unified",
         xaxis=xaxis,
         **y_axes,
-        legend={"title": "Tag"},
-        margin={"l": 60, "r": 30, "t": 30, "b": 60},
+        legend={
+            "title": "Tag",
+            "orientation": "h",
+            "x": 0,
+            "xanchor": "left",
+            "y": -0.18,
+            "yanchor": "top",
+        },
+        margin={"l": 60, "r": 30, "t": 30, "b": 90},
     )
     return figure
 

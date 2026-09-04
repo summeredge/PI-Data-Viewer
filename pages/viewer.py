@@ -769,7 +769,7 @@ layout = html.Div(
             [
                 html.Aside(
                     [
-                        html.H2("查询参数", className="panel-title"),
+                        html.H2("Tag Explorer", className="panel-title"),
                         html.Label("数据来源", className="field-label-text"),
                         dcc.RadioItems(
                             id="data-source",
@@ -880,7 +880,7 @@ layout = html.Div(
                             className="file-upload-section",
                             style=_FILE_UPLOAD_STYLE,
                         ),
-                        html.H3("当前变量", className="panel-subtitle"),
+                        html.H3("可用标签", className="panel-subtitle"),
                         dcc.Checklist(
                             id="variable-selector",
                             options=[],
@@ -914,7 +914,6 @@ layout = html.Div(
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
                                     children=[
-                                        html.H2("结果", className="section-title"),
                                         html.Div(
                                             [
                                                 html.Label(
@@ -983,7 +982,7 @@ layout = html.Div(
                                                                     "value": "independent",
                                                                 },
                                                             ],
-                                                            value="shared",
+                                                            value="independent",
                                                             clearable=False,
                                                             className="select-control",
                                                             style=_TREND_CONTROL_STYLE,
@@ -998,7 +997,8 @@ layout = html.Div(
                                                     disabled=True,
                                                     type="button",
                                                     className="primary-button",
-                                                    style=_TREND_CONTROL_STYLE,
+                                                    style=_TREND_CONTROL_STYLE
+                                                    | {"height": "32px", "minHeight": "32px"},
                                                 ),
                                             ],
                                             id="trend-controls",
@@ -1045,12 +1045,8 @@ layout = html.Div(
                                                 className="visualization-frame",
                                             ),
                                         ),
-                                        html.Details(
+                                        html.Div(
                                             [
-                                                html.Summary(
-                                                    "详情：逐变量统计与分布",
-                                                    className="details-summary",
-                                                ),
                                                 html.Div(
                                                     [
                                                         html.H2("基础统计", className="section-subtitle"),
@@ -1064,7 +1060,6 @@ layout = html.Div(
                                                     className="detail-content",
                                                 ),
                                             ],
-                                            open=True,
                                             className="detail-section",
                                         ),
                                     ],
@@ -1077,10 +1072,6 @@ layout = html.Div(
                                     children=[
                                         html.Div(
                                             [
-                                                html.H2(
-                                                    "XY 散点矩阵",
-                                                    className="section-title",
-                                                ),
                                                 html.Button(
                                                     "显示矩阵",
                                                     id="show-scatter-button",
@@ -1089,7 +1080,7 @@ layout = html.Div(
                                                     type="button",
                                                     className="primary-button",
                                                     style=_TREND_CONTROL_STYLE
-                                                    | {"width": "90px"},
+                                                    | {"width": "100px"},
                                                 ),
                                             ],
                                             className="scatter-title-row",
@@ -1200,7 +1191,6 @@ layout = html.Div(
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
                                     children=[
-                                        html.H2("Box Plot", className="section-title"),
                                         html.Label(
                                             [
                                                 html.Span(
@@ -1239,24 +1229,27 @@ layout = html.Div(
                                             role="status",
                                             **{"aria-live": "polite"},
                                         ),
-                                        dcc.Loading(
-                                            id="boxplot-loading",
-                                            type="dot",
-                                            color="#176b87",
-                                            custom_spinner=html.Div(
-                                                "正在生成箱线图…",
-                                                className="loading-message",
+                                        html.Div(
+                                            dcc.Loading(
+                                                id="boxplot-loading",
+                                                type="dot",
+                                                color="#176b87",
+                                                custom_spinner=html.Div(
+                                                    "正在生成箱线图…",
+                                                    className="loading-message",
+                                                ),
+                                                children=dcc.Graph(
+                                                    id="boxplot-graph",
+                                                    className="boxplot-graph",
+                                                    figure=_empty_boxplot_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "600px"},
+                                                ),
                                             ),
-                                            children=dcc.Graph(
-                                                id="boxplot-graph",
-                                                className="boxplot-graph",
-                                                figure=_empty_boxplot_figure(),
-                                                config={
-                                                    "displaylogo": False,
-                                                    "scrollZoom": False,
-                                                },
-                                                style={"height": "600px"},
-                                            ),
+                                            className="visualization-frame boxplot-visualization-frame",
                                         ),
                                     ],
                                 ),
