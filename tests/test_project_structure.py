@@ -51,6 +51,9 @@ def test_module_imports():
         "backend.dataframe_store",
         "charts.trend",
         "charts.scatter",
+        "backend.spc",
+        "charts.boxplot",
+        "charts.control_chart",
         "pages.viewer",
     ):
         assert import_module(module_name)

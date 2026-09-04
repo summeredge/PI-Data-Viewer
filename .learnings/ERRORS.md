@@ -27,6 +27,34 @@ The expression after '&' in a pipeline element produced an object that was not v
 
 ---
 
+## [ERR-20260904-002] 项目虚拟环境首次启动权限错误
+
+**Priority**: low
+**Status**: resolved
+**Area**: tools
+
+### 摘要
+创建项目专用 Python 3.11 环境时，首次启动其 Scripts/python.exe 被系统拒绝；授权上下文下重试后可正常运行。
+
+### 错误信息
+```text
+[Errno 13] Permission denied: 'C:\\Users\\shaoy\\Documents\\PythonEnvs\\pi-data-viewer\\Scripts\\python.exe'
+Unable to create process using '"C:\\Users\\shaoy\\AppData\\Local\\Programs\\Python\\Python311\\python.exe" -m pip list'
+```
+
+### 上下文
+- PI Data Viewer 没有现成受控环境，需要在 `C:\Users\shaoy\Documents\PythonEnvs` 下创建项目环境。
+- 目录和依赖已生成；使用项目环境解释器的授权上下文验证并运行测试成功。
+
+### 建议修复
+先区分 venv 创建失败与解释器执行权限问题；保留项目环境，使用同一环境解释器重试，不切换到 Codex bundled Python。
+
+### 元数据
+- Reproducible: unknown
+- See Also: none
+
+---
+
 ## [ERR-20260902-001] In-app browser file chooser timeout
 
 **Priority**: low

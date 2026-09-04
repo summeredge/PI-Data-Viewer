@@ -18,6 +18,24 @@ Dash 4 的 `dcc.Dropdown` 组件配置中的高度不一定直接作用于实际
 
 ---
 
+## [LRN-20260904-002] I-MR 控制限与显示采样分离
+
+**Priority**: medium
+**Status**: resolved
+**Area**: tools
+
+### 内容
+I-MR 的均值、移动极差和控制限必须基于完整有效序列计算；浏览器显示点只作为最后一步采样，并保留异常点索引，避免大数据量绘图改变控制结果或隐藏异常。
+
+### 建议修复
+把完整计算结果与 display series 分开传递；任何降采样都不能重新计算 `X̄`、`MR̄` 或控制限。
+
+### 元数据
+- Source: task_review
+- See Also: none
+
+---
+
 ## [LRN-20260903-001] Dash 4.4.1 原生文件控件
 
 **Priority**: medium

@@ -50,7 +50,12 @@ def test_scatter_layout_has_controls_button_and_graph():
 def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
     tabs = viewer.layout.children[2].children[1].children[0]
 
-    assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter", "Box Plot"]
+    assert [tab.label for tab in tabs.children] == [
+        "Trend",
+        "XY Scatter",
+        "Box Plot",
+        "Control Chart",
+    ]
     assert not any(
         getattr(component, "className", None) == "section-title"
         for component in _components(tabs)

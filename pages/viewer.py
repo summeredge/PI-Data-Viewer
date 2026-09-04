@@ -19,6 +19,11 @@ from charts.scatter import (
     prepare_scatter_frame,
 )
 from charts.boxplot import create_boxplot_figure
+from charts.control_chart import (
+    DEFAULT_MAX_CONTROL_POINTS,
+    SINGLE_VARIABLE_MESSAGE,
+    create_control_chart,
+)
 from charts.trend import create_distribution_figure, create_trend_figure
 
 
@@ -112,6 +117,12 @@ def _empty_scatter_figure():
 
 def _empty_boxplot_figure():
     return create_boxplot_figure(pd.DataFrame(), [])
+
+
+def _empty_control_chart_figure():
+    return create_control_chart(
+        pd.DataFrame(index=pd.DatetimeIndex([], name="Timestamp")), []
+    )
 
 
 def _selected_columns(frame: pd.DataFrame, selected_columns=None) -> list:
@@ -685,6 +696,37 @@ def render_boxplot_view(
         return figure, ", ".join(map(str, selected)), "暂无可用数据"
     status = "" if figure.data else "所选变量无有效数值数据"
     return figure, ", ".join(map(str, selected)), status
+
+
+def render_control_chart_view(viewer_state, selected_columns=None):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if not state.get("ready"):
+        return (
+            _empty_control_chart_figure(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
+
+    current = get_dataframe()
+    if current is None:
+        return _empty_control_chart_figure(), "未选择变量", "尚未加载数据"
+
+    selected = _selected_columns(current, selected_columns)
+    selected_text = ", ".join(map(str, selected)) or "未选择变量"
+    if len(selected) != 1:
+        return create_control_chart(current, selected), selected_text, SINGLE_VARIABLE_MESSAGE
+
+    try:
+        figure = create_control_chart(
+            current,
+            selected,
+            max_points=DEFAULT_MAX_CONTROL_POINTS,
+        )
+    except (TypeError, ValueError) as exc:
+        return _empty_control_chart_figure(), selected_text, str(exc)
+    if current.empty:
+        return figure, selected_text, "暂无可用数据"
+    return figure, selected_text, "" if figure.data else "所选变量无有效数值数据"
 
 
 def update_scatter_variable_options(viewer_state):
@@ -1261,6 +1303,52 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
+                                dcc.Tab(
+                                    label="Control Chart",
+                                    value="control-chart-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="control-chart-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            id="control-chart-status",
+                                            className="status-message",
+                                            role="status",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="control-chart-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成 I-MR 控制图…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                dcc.Graph(
+                                                    id="control-chart-graph",
+                                                    className="control-chart-graph",
+                                                    figure=_empty_control_chart_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "760px"},
+                                                ),
+                                                className="visualization-frame control-chart-visualization-frame",
+                                            ),
+                                        ),
+                                    ],
+                                ),
                             ],
                         ),
                         html.Section(
@@ -1427,6 +1515,15 @@ def register_callbacks(app) -> None:
         Input("boxplot-axis-mode", "value"),
         prevent_initial_call=True,
     )(render_boxplot_view)
+
+    app.callback(
+        Output("control-chart-graph", "figure"),
+        Output("control-chart-selected-columns", "children"),
+        Output("control-chart-status", "children"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        prevent_initial_call=True,
+    )(render_control_chart_view)
 
     app.callback(
         Output("load-status", "children"),

@@ -28,7 +28,12 @@ def teardown_function():
 def test_boxplot_is_a_separate_tab_and_preserves_existing_tab_contents():
     tabs = viewer.layout.children[2].children[1].children[0]
 
-    assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter", "Box Plot"]
+    assert [tab.label for tab in tabs.children] == [
+        "Trend",
+        "XY Scatter",
+        "Box Plot",
+        "Control Chart",
+    ]
     trend_ids = {
         component.id
         for component in _components(tabs.children[0])

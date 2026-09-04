@@ -591,6 +591,15 @@ textarea:disabled,
   height: clamp(320px, 48vh, 560px) !important;
 }
 
+.control-chart-visualization-frame {
+  margin-top: 14px;
+}
+
+.control-chart-graph {
+  width: 100%;
+  min-width: 0;
+}
+
 .loading-message {
   padding: 10px 14px;
   border: 1px solid var(--border-strong);
