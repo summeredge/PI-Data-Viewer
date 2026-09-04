@@ -9,7 +9,6 @@ from backend.dataframe_store import store_dataframe
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_TOTAL_SCATTER_POINTS,
-    calculate_scatter_dimensions,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -81,13 +80,19 @@ def test_scatter_graph_disables_scroll_zoom():
     assert graph.responsive is True
 
 
-def test_scatter_graph_style_resizes_for_tab_and_matrix_selection():
+def test_scatter_graph_style_fills_container_and_stays_square():
+    expected = {
+        "width": "100%",
+        "maxWidth": "100%",
+        "height": "auto",
+        "aspectRatio": "1 / 1",
+    }
     assert viewer.update_scatter_graph_style(
         "scatter-tab", "X1", None, None, "Y1", None, None
-    ) == {"width": "420px", "maxWidth": "100%", "height": "420px"}
+    ) == expected
     assert viewer.update_scatter_graph_style(
         "scatter-tab", "X1", "X2", "X3", "Y1", "Y2", "Y3"
-    ) == {"width": "840px", "maxWidth": "100%", "height": "720px"}
+    ) == expected
 
 
 def test_scatter_figure_dimensions_scale_with_matrix_size():
@@ -103,16 +108,16 @@ def test_scatter_figure_dimensions_scale_with_matrix_size():
         frame, ["X1", "X2", "X3"], ["Y1", "Y2", "Y3"]
     )
 
-    assert calculate_scatter_dimensions(1, 1) == (420, 420)
-    assert calculate_scatter_dimensions(2, 2) == (840, 840)
-    assert single.layout.width == 420
-    assert single.layout.height == 420
     assert single.layout.autosize is True
-    assert two_by_two.layout.width == 840
-    assert two_by_two.layout.height == 840
-    assert matrix.layout.width == 840
-    assert matrix.layout.height == 720
-    assert matrix.layout.height > single.layout.height
+    assert single.layout.width is None
+    assert single.layout.height is None
+    assert two_by_two.layout.width is None
+    assert two_by_two.layout.height is None
+    assert matrix.layout.width is None
+    assert matrix.layout.height is None
+    x_domain = matrix.layout.xaxis.domain
+    y_domain = matrix.layout.yaxis.domain
+    assert x_domain[1] - x_domain[0] == pytest.approx(y_domain[1] - y_domain[0])
 
 
 def test_create_scatter_figure_maps_all_xy_pairs_and_hover_data():

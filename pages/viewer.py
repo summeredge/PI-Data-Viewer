@@ -14,7 +14,6 @@ from backend.statistics import calculate_series_summary, calculate_statistics
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_SCATTER_VARIABLES,
-    calculate_scatter_dimensions,
     create_scatter_figure,
     prepare_scatter_frame,
 )
@@ -711,14 +710,11 @@ def update_scatter_graph_style(
     y_2=None,
     y_3=None,
 ):
-    width, height = calculate_scatter_dimensions(
-        len(_scatter_columns(y_1, y_2, y_3)),
-        len(_scatter_columns(x_1, x_2, x_3)),
-    )
     return {
-        "width": f"{width}px",
+        "width": "100%",
         "maxWidth": "100%",
-        "height": f"{height}px",
+        "height": "auto",
+        "aspectRatio": "1 / 1",
     }
 
 
@@ -1174,9 +1170,10 @@ layout = html.Div(
                                                             "scrollZoom": False,
                                                         },
                                                         style={
-                                                            "width": "420px",
+                                                            "width": "100%",
                                                             "maxWidth": "100%",
-                                                            "height": "420px",
+                                                            "height": "auto",
+                                                            "aspectRatio": "1 / 1",
                                                         },
                                                     ),
                                                 ],

@@ -13,16 +13,6 @@ DEFAULT_MAX_SCATTER_POINTS = 100_000
 MAX_TOTAL_SCATTER_POINTS = 300_000
 
 
-def calculate_scatter_dimensions(rows: int, cols: int) -> tuple[int, int]:
-    """Return responsive width and height for a scatter matrix."""
-
-    if int(rows) == int(cols) == 2:
-        return 840, 840
-    width = min(840, max(420, 280 * max(1, int(cols))))
-    height = min(720, max(420, 240 * max(1, int(rows))))
-    return width, height
-
-
 def _selected_columns(columns, axis_label: str) -> list:
     if not isinstance(columns, (list, tuple)):
         raise ValueError(f"请至少选择一个{axis_label}变量")
@@ -103,10 +93,12 @@ def create_scatter_figure(
     x_selected, y_selected, _, display = prepare_scatter_frame(
         df, x_columns, y_columns, max_points
     )
-    width, height = calculate_scatter_dimensions(
-        len(y_selected), len(x_selected)
+    figure = make_subplots(
+        rows=len(y_selected),
+        cols=len(x_selected),
+        horizontal_spacing=0.04,
+        vertical_spacing=0.04,
     )
-    figure = make_subplots(rows=len(y_selected), cols=len(x_selected))
     customdata = [str(value) for value in display.index]
 
     for row, y_column in enumerate(y_selected, start=1):
@@ -138,9 +130,7 @@ def create_scatter_figure(
         autosize=True,
         hovermode="closest",
         showlegend=False,
-        width=width,
-        height=height,
-        margin={"l": 60, "r": 30, "t": 55, "b": 60},
+        margin={"l": 60, "r": 60, "t": 60, "b": 60},
     )
     return figure
 
