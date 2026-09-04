@@ -50,6 +50,17 @@ def test_boxplot_is_a_separate_tab_and_preserves_existing_tab_contents():
     assert "scatter-graph" in scatter_ids
     assert {"boxplot-graph", "boxplot-selected-columns"} <= boxplot_ids
 
+    mode = next(
+        component
+        for component in _components(tabs.children[2])
+        if getattr(component, "id", None) == "boxplot-axis-mode"
+    )
+    assert mode.value == "independent"
+    assert [option["value"] for option in mode.options] == [
+        "independent",
+        "shared",
+    ]
+
 
 def test_create_boxplot_figure_returns_one_box_per_selected_numeric_column():
     frame = pd.DataFrame(
@@ -71,6 +82,27 @@ def test_create_boxplot_figure_returns_one_box_per_selected_numeric_column():
     assert list(figure.data[0].y) == [1.0, 2.0, 3.0]
 
 
+def test_boxplot_axis_modes_control_subplot_y_axes_and_keep_tag_labels_readable():
+    frame = pd.DataFrame(
+        {column: [1.0, 2.0, 3.0] for column in ["PV1", "PV2", "PV3"]}
+    )
+
+    independent = create_boxplot_figure(
+        frame, ["PV1", "PV2", "PV3"], "independent"
+    )
+    shared = create_boxplot_figure(frame, ["PV1", "PV2", "PV3"], "shared")
+
+    assert len(independent.data) == 3
+    assert independent.layout.yaxis.matches is None
+    assert independent.layout.yaxis2.matches is None
+    assert independent.layout.yaxis3.matches is None
+    assert independent.layout.xaxis.tickangle == -30
+    assert independent.layout.xaxis.automargin is True
+    assert independent.layout.margin.b == 110
+    assert shared.layout.yaxis2.matches == "y"
+    assert shared.layout.yaxis3.matches == "y"
+
+
 def test_boxplot_figure_reports_missing_selection_and_empty_numeric_data():
     frame = pd.DataFrame({"PV1": ["bad", None, np.nan]})
 
@@ -88,7 +120,7 @@ def test_render_boxplot_view_uses_shared_frame_and_selected_columns():
     store_dataframe(frame)
 
     figure, selected_text, status = viewer.render_boxplot_view(
-        {"ready": True}, ["PV1", "PV3"]
+        {"ready": True}, ["PV1", "PV3"], "shared"
     )
 
     assert [trace.name for trace in figure.data] == ["PV1", "PV3"]

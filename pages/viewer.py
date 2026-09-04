@@ -660,7 +660,11 @@ def render_scatter_view(
         return _empty_scatter_figure(), str(exc)
 
 
-def render_boxplot_view(viewer_state, selected_columns=None):
+def render_boxplot_view(
+    viewer_state,
+    selected_columns=None,
+    axis_mode="independent",
+):
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return _empty_boxplot_figure(), "未选择变量", state.get("status") or "尚未加载数据"
@@ -672,14 +676,13 @@ def render_boxplot_view(viewer_state, selected_columns=None):
     selected = _selected_columns(current, selected_columns)
     if not selected:
         return create_boxplot_figure(current, []), "未选择变量", "请至少选择一个变量"
-    if current.empty:
-        return (
-            create_boxplot_figure(current, selected),
-            ", ".join(map(str, selected)),
-            "暂无可用数据",
-        )
 
-    figure = create_boxplot_figure(current, selected)
+    try:
+        figure = create_boxplot_figure(current, selected, axis_mode)
+    except (TypeError, ValueError) as exc:
+        return _empty_boxplot_figure(), ", ".join(map(str, selected)), str(exc)
+    if current.empty:
+        return figure, ", ".join(map(str, selected)), "暂无可用数据"
     status = "" if figure.data else "所选变量无有效数值数据"
     return figure, ", ".join(map(str, selected)), status
 
@@ -1198,6 +1201,28 @@ layout = html.Div(
                                     selected_className="viewer-tab-selected",
                                     children=[
                                         html.H2("Box Plot", className="section-title"),
+                                        html.Label(
+                                            [
+                                                html.Span(
+                                                    "Y轴显示",
+                                                    className="field-label-copy",
+                                                ),
+                                                dcc.RadioItems(
+                                                    id="boxplot-axis-mode",
+                                                    options=[
+                                                        {
+                                                            "label": "独立尺度（默认）",
+                                                            "value": "independent",
+                                                        },
+                                                        {"label": "统一尺度", "value": "shared"},
+                                                    ],
+                                                    value="independent",
+                                                    inline=True,
+                                                    className="source-switch",
+                                                ),
+                                            ],
+                                            className="field-label",
+                                        ),
                                         html.P(
                                             [
                                                 "当前选择变量：",
@@ -1398,6 +1423,7 @@ def register_callbacks(app) -> None:
         Output("boxplot-status", "children"),
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
+        Input("boxplot-axis-mode", "value"),
         prevent_initial_call=True,
     )(render_boxplot_view)
 
