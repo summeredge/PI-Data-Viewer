@@ -13,10 +13,28 @@
     container.replaceChildren(input);
   }
 
+  function reverseTrendZoomMask() {
+    const graph = document.querySelector("#trend-graph .js-plotly-plot");
+    if (!graph || graph.dataset.reverseZoomMask) return;
+
+    graph.dataset.reverseZoomMask = "true";
+    graph.on("plotly_relayouting", function () {
+      const zoomBox = graph.querySelector(".zoomlayer .zoombox");
+      const path = zoomBox?.getAttribute("d") || "";
+      const selectedPathStart = path.indexOf("M", 1);
+      if (zoomBox && selectedPathStart > 0) {
+        zoomBox.setAttribute("d", path.slice(selectedPathStart));
+        zoomBox.style.fill = "rgba(0, 0, 0, 0.4)";
+      }
+    });
+  }
+
   function watchLayout() {
     addFileInput();
+    reverseTrendZoomMask();
     new MutationObserver(function () {
       addFileInput();
+      reverseTrendZoomMask();
     }).observe(document.body, {
       childList: true,
       subtree: true,

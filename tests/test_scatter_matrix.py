@@ -78,14 +78,20 @@ def test_scatter_figure_dimensions_scale_with_matrix_size():
     )
 
     single = create_scatter_figure(frame, ["X1"], ["Y1"])
+    two_by_two = create_scatter_figure(
+        frame, ["X1", "X2"], ["Y1", "Y2"]
+    )
     matrix = create_scatter_figure(
         frame, ["X1", "X2", "X3"], ["Y1", "Y2", "Y3"]
     )
 
     assert calculate_scatter_dimensions(1, 1) == (420, 420)
+    assert calculate_scatter_dimensions(2, 2) == (840, 840)
     assert single.layout.width == 420
     assert single.layout.height == 420
     assert single.layout.autosize is True
+    assert two_by_two.layout.width == 840
+    assert two_by_two.layout.height == 840
     assert matrix.layout.width == 840
     assert matrix.layout.height == 720
     assert matrix.layout.height > single.layout.height

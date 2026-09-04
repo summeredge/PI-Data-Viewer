@@ -16,6 +16,8 @@ MAX_TOTAL_SCATTER_POINTS = 300_000
 def calculate_scatter_dimensions(rows: int, cols: int) -> tuple[int, int]:
     """Return responsive width and height for a scatter matrix."""
 
+    if int(rows) == int(cols) == 2:
+        return 840, 840
     width = min(840, max(420, 280 * max(1, int(cols))))
     height = min(720, max(420, 240 * max(1, int(rows))))
     return width, height
