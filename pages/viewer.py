@@ -18,6 +18,7 @@ from charts.scatter import (
     create_scatter_figure,
     prepare_scatter_frame,
 )
+from charts.boxplot import create_boxplot_figure
 from charts.trend import create_distribution_figure, create_trend_figure
 
 
@@ -107,6 +108,10 @@ def _empty_scatter_figure():
     figure = go.Figure()
     figure.update_layout(template="plotly_white")
     return figure
+
+
+def _empty_boxplot_figure():
+    return create_boxplot_figure(pd.DataFrame(), [])
 
 
 def _selected_columns(frame: pd.DataFrame, selected_columns=None) -> list:
@@ -655,6 +660,30 @@ def render_scatter_view(
         return _empty_scatter_figure(), str(exc)
 
 
+def render_boxplot_view(viewer_state, selected_columns=None):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if not state.get("ready"):
+        return _empty_boxplot_figure(), "未选择变量", state.get("status") or "尚未加载数据"
+
+    current = get_dataframe()
+    if current is None:
+        return _empty_boxplot_figure(), "未选择变量", "尚未加载数据"
+
+    selected = _selected_columns(current, selected_columns)
+    if not selected:
+        return create_boxplot_figure(current, []), "未选择变量", "请至少选择一个变量"
+    if current.empty:
+        return (
+            create_boxplot_figure(current, selected),
+            ", ".join(map(str, selected)),
+            "暂无可用数据",
+        )
+
+    figure = create_boxplot_figure(current, selected)
+    status = "" if figure.data else "所选变量无有效数值数据"
+    return figure, ", ".join(map(str, selected)), status
+
+
 def update_scatter_variable_options(viewer_state):
     if not isinstance(viewer_state, dict):
         options = []
@@ -1043,7 +1072,25 @@ layout = html.Div(
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
                                     children=[
-                                        html.H2("XY 散点矩阵", className="section-title"),
+                                        html.Div(
+                                            [
+                                                html.H2(
+                                                    "XY 散点矩阵",
+                                                    className="section-title",
+                                                ),
+                                                html.Button(
+                                                    "显示矩阵",
+                                                    id="show-scatter-button",
+                                                    n_clicks=0,
+                                                    disabled=True,
+                                                    type="button",
+                                                    className="primary-button",
+                                                    style=_TREND_CONTROL_STYLE
+                                                    | {"width": "90px"},
+                                                ),
+                                            ],
+                                            className="scatter-title-row",
+                                        ),
                                         html.Div(
                                             [
                                                 html.Div(
@@ -1096,15 +1143,6 @@ layout = html.Div(
                                             ],
                                             className="scatter-axis-group",
                                         ),
-                                        html.Button(
-                                            "显示散点矩阵",
-                                            id="show-scatter-button",
-                                            n_clicks=0,
-                                            disabled=True,
-                                            type="button",
-                                            className="primary-button",
-                                            style=_TREND_CONTROL_STYLE | {"width": "180px"},
-                                        ),
                                         html.Div(
                                             id="scatter-status",
                                             className="status-message",
@@ -1149,6 +1187,50 @@ layout = html.Div(
                                                     ),
                                                 ],
                                                 className="scatter-visualization-frame",
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                                dcc.Tab(
+                                    label="Box Plot",
+                                    value="boxplot-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.H2("Box Plot", className="section-title"),
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="boxplot-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            id="boxplot-status",
+                                            className="status-message",
+                                            role="status",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="boxplot-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成箱线图…",
+                                                className="loading-message",
+                                            ),
+                                            children=dcc.Graph(
+                                                id="boxplot-graph",
+                                                className="boxplot-graph",
+                                                figure=_empty_boxplot_figure(),
+                                                config={
+                                                    "displaylogo": False,
+                                                    "scrollZoom": False,
+                                                },
+                                                style={"height": "600px"},
                                             ),
                                         ),
                                     ],
@@ -1309,6 +1391,15 @@ def register_callbacks(app) -> None:
         State("scatter-y-3", "value"),
         prevent_initial_call=True,
     )(render_scatter_view)
+
+    app.callback(
+        Output("boxplot-graph", "figure"),
+        Output("boxplot-selected-columns", "children"),
+        Output("boxplot-status", "children"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        prevent_initial_call=True,
+    )(render_boxplot_view)
 
     app.callback(
         Output("load-status", "children"),

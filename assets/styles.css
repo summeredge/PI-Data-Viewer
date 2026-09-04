@@ -502,9 +502,21 @@ textarea:disabled,
   min-width: 0;
 }
 
+.scatter-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.scatter-title-row .section-title {
+  margin: 0;
+}
+
 #show-scatter-button {
-  width: 180px !important;
-  margin-top: 4px;
+  width: 90px !important;
+  margin-top: 0;
 }
 
 .scatter-visualization-frame {

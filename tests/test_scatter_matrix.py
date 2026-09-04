@@ -31,11 +31,19 @@ def test_scatter_layout_has_controls_button_and_graph():
     assert {f"scatter-y-{index}" for index in range(1, 4)} <= ids
     assert {"show-scatter-button", "scatter-graph"} <= ids
 
+    scatter_tab = viewer.layout.children[2].children[1].children[0].children[1]
+    title_row = scatter_tab.children[0]
+    button = title_row.children[1]
+    assert title_row.className == "scatter-title-row"
+    assert title_row.children[0].children == "XY 散点矩阵"
+    assert button.children == "显示矩阵"
+    assert button.style["width"] == "90px"
+
 
 def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
     tabs = viewer.layout.children[2].children[1].children[0]
 
-    assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter"]
+    assert [tab.label for tab in tabs.children] == ["Trend", "XY Scatter", "Box Plot"]
     trend_ids = {
         component.id
         for component in _components(tabs.children[0])
