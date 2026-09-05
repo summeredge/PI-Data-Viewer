@@ -63,6 +63,16 @@ _FILE_UPLOAD_STYLE = {
     "display": "none",
 }
 _TREND_CONTROL_STYLE = {"width": "100%", "height": "32px"}
+_CONTROL_CHART_TEST_OPTIONS = [
+    {"label": "Test 1：单点超过 3σ 控制限（Minitab 默认）", "value": 1},
+    {"label": "Test 2：连续 9 点位于中心线同一侧", "value": 2},
+    {"label": "Test 3：连续 6 点持续上升或下降", "value": 3},
+    {"label": "Test 4：连续 14 点交替升降", "value": 4},
+    {"label": "Test 5：3 点中有 2 点超过同侧 2σ", "value": 5},
+    {"label": "Test 6：5 点中有 4 点超过同侧 1σ", "value": 6},
+    {"label": "Test 7：连续 15 点位于中心线 1σ 内", "value": 7},
+    {"label": "Test 8：连续 8 点位于中心线 1σ 外", "value": 8},
+]
 _UPLOAD_CLIENTSIDE_FUNCTION = """
 async function(n_clicks) {
     if (!n_clicks) {
@@ -698,7 +708,7 @@ def render_boxplot_view(
     return figure, ", ".join(map(str, selected)), status
 
 
-def render_control_chart_view(viewer_state, selected_columns=None):
+def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
@@ -714,13 +724,18 @@ def render_control_chart_view(viewer_state, selected_columns=None):
     selected = _selected_columns(current, selected_columns)
     selected_text = ", ".join(map(str, selected)) or "未选择变量"
     if len(selected) != 1:
-        return create_control_chart(current, selected), selected_text, SINGLE_VARIABLE_MESSAGE
+        return (
+            create_control_chart(current, selected, tests=tests),
+            selected_text,
+            SINGLE_VARIABLE_MESSAGE,
+        )
 
     try:
         figure = create_control_chart(
             current,
             selected,
             max_points=DEFAULT_MAX_CONTROL_POINTS,
+            tests=tests,
         )
     except (TypeError, ValueError) as exc:
         return _empty_control_chart_figure(), selected_text, str(exc)
@@ -1319,6 +1334,27 @@ layout = html.Div(
                                             ],
                                             className="section-help",
                                         ),
+                                        html.Label(
+                                            [
+                                                html.Span(
+                                                    "判异检验",
+                                                    className="field-label-copy",
+                                                ),
+                                                dcc.Dropdown(
+                                                    id="control-chart-tests",
+                                                    options=_CONTROL_CHART_TEST_OPTIONS,
+                                                    value=[1],
+                                                    multi=True,
+                                                    placeholder="不执行判异检验",
+                                                    className="select-control",
+                                                ),
+                                            ],
+                                            className="field-label control-chart-tests",
+                                        ),
+                                        html.P(
+                                            "Minitab 默认只启用 Test 1；I 图支持 Test 1–8，MR 图仅应用 Test 1–4。",
+                                            className="section-help control-chart-test-help",
+                                        ),
                                         html.Div(
                                             id="control-chart-status",
                                             className="status-message",
@@ -1522,6 +1558,7 @@ def register_callbacks(app) -> None:
         Output("control-chart-status", "children"),
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
+        Input("control-chart-tests", "value"),
         prevent_initial_call=True,
     )(render_control_chart_view)
 

@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import pytest
 
 from backend.dataframe_store import clear_dataframe, store_dataframe
-from backend.spc import calculate_imr
+from backend.spc import calculate_imr, detect_special_causes
 from charts.control_chart import (
     SINGLE_VARIABLE_MESSAGE,
     create_control_chart,
@@ -39,8 +39,16 @@ def test_control_chart_tab_uses_the_shared_variable_selector():
         "control-chart-graph",
         "control-chart-selected-columns",
         "control-chart-status",
+        "control-chart-tests",
     } <= component_ids
     assert "variable-selector" not in component_ids
+    test_selector = next(
+        component
+        for component in _components(control_tab)
+        if getattr(component, "id", None) == "control-chart-tests"
+    )
+    assert test_selector.value == [1]
+    assert [option["value"] for option in test_selector.options] == list(range(1, 9))
 
 
 def test_calculate_imr_uses_moving_range_limits():
@@ -62,6 +70,51 @@ def test_calculate_imr_uses_moving_range_limits():
     assert result["individual_lcl"] == pytest.approx(10.8 - 3 * expected_sigma)
     assert result["mr_ucl"] == pytest.approx(3.267 * expected_mr_bar)
     assert result["mr_lcl"] == 0
+    assert result["selected_tests"] == (1,)
+
+
+@pytest.mark.parametrize(
+    ("test_number", "values"),
+    [
+        (1, [0, 0, 3.1]),
+        (2, [1.0] * 9),
+        (3, [1, 2, 3, 4, 5, 6]),
+        (4, [0, 1] * 7),
+        (5, [2.1, 0, 2.2]),
+        (6, [1.1, 1.2, 0, 1.3, 1.4]),
+        (7, [0.5] * 15),
+        (8, [1.1, -1.1] * 4),
+    ],
+)
+def test_minitab_special_cause_tests_flag_the_completing_point(
+    test_number, values
+):
+    signals = detect_special_causes(
+        pd.Series(values, dtype=float), 0, 1, tests=[test_number]
+    )[test_number]
+
+    assert signals.iloc[-1]
+    assert signals.sum() == 1
+
+
+def test_special_cause_runs_do_not_bridge_missing_values():
+    signals = detect_special_causes(
+        pd.Series([1.0] * 8 + [np.nan] + [1.0] * 8),
+        0,
+        1,
+        tests=[2],
+    )
+
+    assert not signals[2].any()
+
+
+def test_moving_range_chart_supports_only_minitab_tests_one_to_four():
+    result = calculate_imr(
+        pd.Series([0, 1] * 10, dtype=float), tests=range(1, 9)
+    )
+
+    assert set(result["individual_tests"]) == set(range(1, 9))
+    assert set(result["moving_range_tests"]) == {1, 2, 3, 4}
 
 
 def test_create_control_chart_contains_individual_and_moving_range_traces():
@@ -102,6 +155,49 @@ def test_create_control_chart_marks_individual_and_mr_outliers_red():
     assert any(value == 100 for value in individual_outliers.y if np.isfinite(value))
     assert mr_outliers.marker.color == "#b42318"
     assert any(value == 88 for value in mr_outliers.y if np.isfinite(value))
+
+
+def test_control_chart_labels_selected_minitab_test_signals():
+    frame = pd.DataFrame(
+        {"A": [0.0] * 10 + [10.0] * 9},
+        index=pd.date_range("2024-01-01", periods=19, freq="min"),
+    )
+
+    figure = create_control_chart(frame, ["A"], tests=[2])
+    signals = next(trace for trace in figure.data if trace.name == "异常点")
+
+    assert signals.text[-1] == "2"
+    assert signals.customdata[-1] == "Test 2"
+    assert "%{customdata}" in signals.hovertemplate
+
+
+def test_control_chart_allows_disabling_special_cause_tests():
+    frame = pd.DataFrame(
+        {"A": [0.0, 10.0]},
+        index=pd.date_range("2024-01-01", periods=2, freq="min"),
+    )
+
+    figure = create_control_chart(frame, ["A"], tests=[])
+
+    assert "异常点" not in {trace.name for trace in figure.data}
+    assert "MR异常点" not in {trace.name for trace in figure.data}
+
+
+def test_control_chart_callback_reads_the_test_selector():
+    from app import app
+
+    callback = next(
+        entry
+        for entry in app.callback_map.values()
+        if entry.get("callback")
+        and entry["callback"].__name__ == "render_control_chart_view"
+    )
+
+    assert [item["id"] for item in callback["inputs"]] == [
+        "viewer-state",
+        "variable-selector",
+        "control-chart-tests",
+    ]
 
 
 def test_control_chart_requires_exactly_one_selected_variable():

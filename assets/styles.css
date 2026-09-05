@@ -595,6 +595,15 @@ textarea:disabled,
   margin-top: 14px;
 }
 
+.control-chart-tests {
+  max-width: 620px;
+  margin-top: 12px;
+}
+
+.control-chart-test-help {
+  margin-top: 5px;
+}
+
 .control-chart-graph {
   width: 100%;
   min-width: 0;

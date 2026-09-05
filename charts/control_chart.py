@@ -77,7 +77,8 @@ def _sample_positions(length: int, max_points: int, required) -> list[int]:
     )
     required = sorted(set(required))
     if len(required) >= max_points:
-        return required[:max_points]
+        chosen = np.linspace(0, len(required) - 1, max_points, dtype=int)
+        return [required[index] for index in chosen]
 
     remaining = max_points - len(required)
     available = [position for position in base if position not in required]
@@ -147,10 +148,50 @@ def _set_layout(figure: go.Figure) -> None:
     )
 
 
+def _add_signal_trace(
+    figure: go.Figure,
+    values: pd.Series,
+    signals: pd.Series,
+    test_results: dict[int, pd.Series],
+    positions: list[int],
+    name: str,
+    row: int,
+) -> None:
+    if not signals.any():
+        return
+    failed_tests = [
+        [test for test, failed in test_results.items() if failed.iloc[position]]
+        for position in positions
+    ]
+    labels = [", ".join(f"Test {test}" for test in tests) for tests in failed_tests]
+    display_numbers = [", ".join(map(str, tests)) for tests in failed_tests]
+    figure.add_trace(
+        go.Scattergl(
+            x=values.index,
+            y=values.where(signals),
+            mode="markers+text",
+            name=name,
+            marker={"color": _OUTLIER_COLOR, "size": 8},
+            text=display_numbers,
+            textposition="top center",
+            textfont={"color": _OUTLIER_COLOR, "size": 10},
+            customdata=labels,
+            hovertemplate=(
+                "%{x|%Y-%m-%d %H:%M:%S}<br>值: %{y}"
+                "<br>%{customdata}<extra></extra>"
+            ),
+            showlegend=False,
+        ),
+        row=row,
+        col=1,
+    )
+
+
 def create_control_chart(
     dataframe: pd.DataFrame,
     selected_columns: list | tuple | None = None,
     max_points: int = DEFAULT_MAX_CONTROL_POINTS,
+    tests=None,
 ) -> go.Figure:
     """Create an Individual and Moving Range chart from one selected column."""
 
@@ -164,23 +205,23 @@ def create_control_chart(
         return _message_figure(SINGLE_VARIABLE_MESSAGE)
 
     try:
-        result = calculate_imr(dataframe[column])
+        result = calculate_imr(dataframe[column], tests=tests)
     except ValueError as exc:
         return _message_figure(str(exc))
     values = result["values"]
     moving_range = result["moving_range"]
-    individual_outliers = result["individual_outliers"]
-    moving_range_outliers = result["moving_range_outliers"]
+    individual_signals = result["individual_signals"]
+    moving_range_signals = result["moving_range_signals"]
     max_points = _resolve_max_points(max_points)
     required = np.flatnonzero(
-        individual_outliers.to_numpy(dtype=bool)
-        | moving_range_outliers.to_numpy(dtype=bool)
+        individual_signals.to_numpy(dtype=bool)
+        | moving_range_signals.to_numpy(dtype=bool)
     )
     positions = _sample_positions(len(values), max_points, required)
     display_values = values.iloc[positions]
     display_moving_range = moving_range.iloc[positions]
-    display_individual_outliers = individual_outliers.iloc[positions]
-    display_moving_range_outliers = moving_range_outliers.iloc[positions]
+    display_individual_signals = individual_signals.iloc[positions]
+    display_moving_range_signals = moving_range_signals.iloc[positions]
 
     figure = make_subplots(
         rows=2,
@@ -203,20 +244,15 @@ def create_control_chart(
         row=1,
         col=1,
     )
-    if display_individual_outliers.any():
-        figure.add_trace(
-            go.Scattergl(
-                x=display_values.index,
-                y=display_values.where(display_individual_outliers),
-                mode="markers",
-                name="异常点",
-                marker={"color": _OUTLIER_COLOR, "size": 8},
-                hovertemplate=hovertemplate,
-                showlegend=False,
-            ),
-            row=1,
-            col=1,
-        )
+    _add_signal_trace(
+        figure,
+        display_values,
+        display_individual_signals,
+        result["individual_tests"],
+        positions,
+        "异常点",
+        1,
+    )
     _add_limit_trace(
         figure,
         display_values.index,
@@ -255,20 +291,15 @@ def create_control_chart(
         row=2,
         col=1,
     )
-    if display_moving_range_outliers.any():
-        figure.add_trace(
-            go.Scattergl(
-                x=display_moving_range.index,
-                y=display_moving_range.where(display_moving_range_outliers),
-                mode="markers",
-                name="MR异常点",
-                marker={"color": _OUTLIER_COLOR, "size": 8},
-                hovertemplate=hovertemplate,
-                showlegend=False,
-            ),
-            row=2,
-            col=1,
-        )
+    _add_signal_trace(
+        figure,
+        display_moving_range,
+        display_moving_range_signals,
+        result["moving_range_tests"],
+        positions,
+        "MR异常点",
+        2,
+    )
     _add_limit_trace(figure, display_moving_range.index, result["mr_cl"], "MR CL", 2, "dash")
     _add_limit_trace(
         figure,

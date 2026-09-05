@@ -1,5 +1,41 @@
 # Learnings
 
+## [LRN-20260905-001] 重复 Dash 区块必须用唯一锚点补丁
+
+**Priority**: medium
+**Status**: resolved
+**Area**: tools
+
+### 内容
+在多个 Tab 和 callback 具有相似结构时，以通用 `html.P` 或 `Input("variable-selector")` 为上下文的补丁可能落到 Box Plot 或 Trend。新增控件后必须按唯一组件 ID 或 callback Output 定位，并检查 callback map 的实际输入。
+
+### 建议修复
+补丁使用 `label="Control Chart"`、`Output("control-chart-graph", ...)` 等唯一锚点；随后用 `rg` 检查落点，并为 callback 输入列表保留回归测试。
+
+### 元数据
+- Source: error
+- See Also: none
+
+---
+
+## [LRN-20260905-002] Minitab I-MR 判异规则边界
+
+**Priority**: medium
+**Status**: resolved
+**Area**: tools
+
+### 内容
+Minitab I-MR 默认仅启用 Test 1；I 图可选 Test 1–8，MR 图仅应用 Test 1–4。连续点规则在完成窗口的点发出信号，缺失值必须打断窗口；所有规则在完整序列上计算后再投影到显示采样点。
+
+### 建议修复
+保持 Test 1 默认值；统一返回逐规则布尔序列，图层显示触发编号，并将所有信号点纳入有界显示采样。
+
+### 元数据
+- Source: task_review
+- See Also: LRN-20260904-002
+
+---
+
 ## [LRN-20260904-001] Dash 下拉控件的实际高度
 
 **Priority**: low

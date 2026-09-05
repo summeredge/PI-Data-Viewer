@@ -1,5 +1,35 @@
 # Errors
 
+## [ERR-20260905-001] Agent Reach Windows 检索入口与编码失败
+
+**Priority**: low
+**Status**: resolved
+**Area**: tools
+
+### 摘要
+Agent Reach 的 Exa 启动器不在 PATH，已安装版本不支持 `doctor --json`，普通 doctor 又受 Windows GBK 编解码影响；改用实际 CLI、UTF-8 环境和官方网页搜索回退后完成核对。
+
+### 错误信息
+```text
+mcporter: The term 'mcporter' is not recognized
+agent-reach: error: unrecognized arguments: --json
+UnicodeDecodeError: 'gbk' codec can't decode byte 0x93
+UnicodeEncodeError: 'gbk' codec can't encode character
+```
+
+### 上下文
+- 查询 Minitab 官方 I-MR 判异规则。
+- `agent-reach.exe doctor` 在 `$env:PYTHONUTF8='1'` 下可正常输出，但 Exa/Jina 通道仍不可用。
+
+### 建议修复
+先定位实际 `agent-reach.exe`；Windows 下设置 `PYTHONUTF8=1`，再按 doctor 结果使用可用后端，语义搜索不可用时回退到只读官方网页搜索。
+
+### 元数据
+- Reproducible: yes
+- See Also: none
+
+---
+
 ## [ERR-20260904-001] PowerShell 变量赋值调用语法错误
 
 **Priority**: low
