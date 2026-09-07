@@ -18,6 +18,7 @@ REQUIRED_PATHS = (
     "backend/dataframe_store.py",
     "backend/statistics.py",
     "backend/spc.py",
+    "backend/capability.py",
     "charts/__init__.py",
     "charts/trend.py",
     "charts/scatter.py",
@@ -25,6 +26,7 @@ REQUIRED_PATHS = (
     "charts/boxplot.py",
     "charts/probability.py",
     "charts/control_chart.py",
+    "charts/capability.py",
     "charts/heatmap.py",
     "layout/__init__.py",
     "layout/sidebar.py",
@@ -53,9 +55,11 @@ def test_module_imports():
         "charts.trend",
         "charts.scatter",
         "backend.spc",
+        "backend.capability",
         "charts.boxplot",
         "charts.probability",
         "charts.control_chart",
+        "charts.capability",
         "pages.viewer",
     ):
         assert import_module(module_name)
@@ -73,6 +77,23 @@ def test_probability_chart_does_not_read_external_data_sources():
 
     for forbidden in ("read_pi_data", "backend.pi_reader", "read_local_file"):
         assert forbidden not in source
+
+
+def test_capability_modules_do_not_read_external_data_sources_or_copy_imr_sigma():
+    for relative_path in ("backend/capability.py", "charts/capability.py"):
+        source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+        for forbidden in (
+            "read_pi_data",
+            "backend.pi_reader",
+            "read_local_file",
+            "store_dataframe",
+        ):
+            assert forbidden not in source
+    capability_source = (PROJECT_ROOT / "backend/capability.py").read_text(
+        encoding="utf-8"
+    )
+    assert "1.128" not in capability_source
+    assert "calculate_imr" in capability_source
 
 
 def test_project_ignore_and_start_paths():

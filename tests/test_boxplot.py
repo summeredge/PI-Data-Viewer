@@ -33,6 +33,7 @@ def test_boxplot_is_a_separate_tab_and_preserves_existing_tab_contents():
         "XY Scatter",
         "Box Plot",
         "Probability Plot",
+        "Capability Analysis",
         "Control Chart",
     ]
     trend_ids = {

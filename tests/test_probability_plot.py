@@ -41,6 +41,7 @@ def test_probability_plot_tab_reuses_the_shared_variable_selector():
         "XY Scatter",
         "Box Plot",
         "Probability Plot",
+        "Capability Analysis",
         "Control Chart",
     ]
     probability_tab = tabs.children[3]

@@ -8,6 +8,7 @@ import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html
 import plotly.graph_objects as go
 
+from backend.capability import calculate_normal_capability
 from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
 from backend.statistics import calculate_series_summary, calculate_statistics
@@ -19,6 +20,11 @@ from charts.scatter import (
     prepare_scatter_frame,
 )
 from charts.boxplot import create_boxplot_figure
+from charts.capability import (
+    NO_SELECTION_MESSAGE as CAPABILITY_NO_SELECTION_MESSAGE,
+    SINGLE_VARIABLE_MESSAGE as CAPABILITY_SINGLE_VARIABLE_MESSAGE,
+    create_capability_figure,
+)
 from charts.control_chart import (
     DEFAULT_MAX_CONTROL_POINTS,
     SINGLE_VARIABLE_MESSAGE,
@@ -141,6 +147,86 @@ def _empty_control_chart_figure():
 
 def _empty_probability_plot_figure():
     return create_probability_plot_figure(pd.DataFrame(), [])
+
+
+def _empty_capability_figure():
+    return create_capability_figure(pd.DataFrame(), [], None)
+
+
+def _empty_capability_summary():
+    return html.Div()
+
+
+def _format_capability_value(value) -> str:
+    if value is None:
+        return "—"
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return "—"
+    return f"{value:.6g}" if math.isfinite(value) else "—"
+
+
+def _capability_summary(result) -> html.Div:
+    if not isinstance(result, dict):
+        return _empty_capability_summary()
+
+    sections = (
+        (
+            "Process Data",
+            (
+                ("N", str(result.get("sample_size", "—"))),
+                ("Mean", _format_capability_value(result.get("mean"))),
+                ("StDev (Within)", _format_capability_value(result.get("within_sigma"))),
+                ("StDev (Overall)", _format_capability_value(result.get("overall_sigma"))),
+                ("LSL", _format_capability_value(result.get("lsl"))),
+                ("USL", _format_capability_value(result.get("usl"))),
+            ),
+        ),
+        (
+            "Potential Capability",
+            (
+                ("Cp", _format_capability_value(result.get("cp"))),
+                ("Cpk", _format_capability_value(result.get("cpk"))),
+                ("CPL", _format_capability_value(result.get("cpl"))),
+                ("CPU", _format_capability_value(result.get("cpu"))),
+            ),
+        ),
+        (
+            "Overall Capability",
+            (
+                ("Pp", _format_capability_value(result.get("pp"))),
+                ("Ppk", _format_capability_value(result.get("ppk"))),
+                ("PPL", _format_capability_value(result.get("ppl"))),
+                ("PPU", _format_capability_value(result.get("ppu"))),
+            ),
+        ),
+    )
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.H4(title, className="capability-summary-title"),
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.Span(label, className="capability-summary-label"),
+                                    html.Strong(value, className="capability-summary-value"),
+                                ],
+                                className="capability-summary-item",
+                            )
+                            for label, value in items
+                        ],
+                        className="capability-summary-items",
+                    ),
+                ],
+                className="capability-summary-section",
+            )
+            for title, items in sections
+        ],
+        className="capability-summary-content",
+    )
 
 
 def _selected_columns(frame: pd.DataFrame, selected_columns=None) -> list:
@@ -807,6 +893,60 @@ def render_probability_plot_view(viewer_state, selected_columns=None):
     return figure, selected_text, "" if figure.data else "所选变量无法生成概率图"
 
 
+def render_capability_view(
+    viewer_state,
+    selected_columns=None,
+    lsl=None,
+    usl=None,
+):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if not state.get("ready"):
+        return (
+            _empty_capability_figure(),
+            _empty_capability_summary(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
+
+    current = get_dataframe()
+    if current is None:
+        return (
+            _empty_capability_figure(),
+            _empty_capability_summary(),
+            "未选择变量",
+            "尚未加载数据",
+        )
+
+    selected = [] if selected_columns is None else _selected_columns(current, selected_columns)
+    selected_text = ", ".join(map(str, selected)) or "未选择变量"
+    if not selected:
+        return (
+            create_capability_figure(current, [], None),
+            _empty_capability_summary(),
+            selected_text,
+            CAPABILITY_NO_SELECTION_MESSAGE,
+        )
+    if len(selected) != 1:
+        return (
+            create_capability_figure(current, selected, None),
+            _empty_capability_summary(),
+            selected_text,
+            CAPABILITY_SINGLE_VARIABLE_MESSAGE,
+        )
+
+    try:
+        result = calculate_normal_capability(current[selected[0]], lsl=lsl, usl=usl)
+        figure = create_capability_figure(current, selected, result)
+    except (TypeError, ValueError) as exc:
+        return (
+            create_capability_figure(current, selected, None),
+            _empty_capability_summary(),
+            selected_text,
+            str(exc),
+        )
+    return figure, _capability_summary(result), selected_text, ""
+
+
 def update_scatter_variable_options(viewer_state):
     if not isinstance(viewer_state, dict):
         options = []
@@ -1432,6 +1572,90 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
+                                    label="Capability Analysis",
+                                    value="capability-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.P(
+                                            "Normal Capability Analysis 假设过程处于稳定状态且数据近似正态分布。可使用 Probability Plot 检查分布，并结合 Control Chart 判断过程稳定性。",
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Label(
+                                                    [
+                                                        html.Span("LSL", className="field-label-copy"),
+                                                        dcc.Input(
+                                                            id="capability-lsl",
+                                                            type="number",
+                                                            debounce=True,
+                                                            placeholder="可选",
+                                                            className="text-input",
+                                                        ),
+                                                    ],
+                                                    className="field-label",
+                                                ),
+                                                html.Label(
+                                                    [
+                                                        html.Span("USL", className="field-label-copy"),
+                                                        dcc.Input(
+                                                            id="capability-usl",
+                                                            type="number",
+                                                            debounce=True,
+                                                            placeholder="可选",
+                                                            className="text-input",
+                                                        ),
+                                                    ],
+                                                    className="field-label",
+                                                ),
+                                            ],
+                                            className="capability-specification-controls",
+                                        ),
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="capability-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            id="capability-status",
+                                            className="status-message",
+                                            role="status",
+                                            children="尚未生成能力分析",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="capability-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成能力分析…",
+                                                className="loading-message",
+                                            ),
+                                            children=dcc.Graph(
+                                                id="capability-graph",
+                                                className="capability-graph",
+                                                figure=_empty_capability_figure(),
+                                                config={
+                                                    "displaylogo": False,
+                                                    "scrollZoom": False,
+                                                },
+                                                style={"height": "600px"},
+                                            ),
+                                        ),
+                                        html.Div(
+                                            id="capability-summary",
+                                            className="capability-summary",
+                                            children=_empty_capability_summary(),
+                                        ),
+                                    ],
+                                ),
+                                dcc.Tab(
                                     label="Control Chart",
                                     value="control-chart-tab",
                                     className="viewer-tab",
@@ -1687,6 +1911,18 @@ def register_callbacks(app) -> None:
         Input("variable-selector", "value"),
         prevent_initial_call=True,
     )(render_probability_plot_view)
+
+    app.callback(
+        Output("capability-graph", "figure"),
+        Output("capability-summary", "children"),
+        Output("capability-selected-columns", "children"),
+        Output("capability-status", "children"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        Input("capability-lsl", "value"),
+        Input("capability-usl", "value"),
+        prevent_initial_call=True,
+    )(render_capability_view)
 
     app.callback(
         Output("control-chart-graph", "figure"),
