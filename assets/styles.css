@@ -1,4 +1,18 @@
+/* ==========================================================================
+   PI Data Viewer 界面样式
+
+   信息层级：
+     页头（主任务说明）
+     └─ 参数区 .parameter-panel   左侧，输入与查询
+        └─ 结果区 .results-panel  右侧，图表与摘要
+           ├─ 详情区 .detail-section  基础统计
+           └─ 日志区 .log-section     状态输出
+
+   状态：focus / disabled / loading / empty 见 “通用状态” 段落。
+   ========================================================================== */
+
 :root {
+  /* 既有调色板 */
   --page-bg: #f2f5f7;
   --surface: #ffffff;
   --surface-muted: #f7f9fb;
@@ -11,6 +25,14 @@
   --focus: #b54708;
   --danger: #b42318;
   --success: #146c43;
+
+  /* 补充 token：圆角 / 阴影 / 控件高度 / 禁用底色 */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --shadow-1: 0 1px 2px rgba(25, 44, 58, 0.05);
+  --control-h: 38px;
+  --control-h-compact: 32px;
+  --fill-disabled: #eef1f3;
 }
 
 * {
@@ -38,15 +60,13 @@ select {
 
 button,
 input,
-textarea,
-.Select-control {
-  border-radius: 5px;
+textarea {
+  border-radius: var(--radius-sm);
 }
 
-:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
+/* --------------------------------------------------------------------------
+   页头
+   -------------------------------------------------------------------------- */
 
 .page-shell {
   width: 100%;
@@ -57,14 +77,16 @@ textarea,
 
 .page-header {
   display: flex;
-  align-items: center;
-  min-height: 58px;
-  margin: 0;
-  padding: 0 24px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  min-height: 56px;
+  padding: 10px 24px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
+/* 装饰性 eyebrow 不参与信息层级 */
 .eyebrow {
   display: none;
 }
@@ -73,34 +95,38 @@ textarea,
   display: flex;
   align-items: center;
   margin: 0;
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: 0.01em;
-}
-
-.page-header h1::before {
-  content: "⌁";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-right: 9px;
-  color: var(--accent);
-  font-size: 26px;
+  font-size: 19px;
+  line-height: 1.2;
   font-weight: 700;
 }
 
-.page-description {
-  display: none;
+/* 用实心色块替代字形标记，避免装饰性符号 */
+.page-header h1::before {
+  content: "";
+  width: 4px;
+  height: 17px;
+  margin-right: 10px;
+  border-radius: 1px;
+  background: var(--accent);
 }
+
+.page-description {
+  flex: 1 1 260px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   整体布局：参数区 / 结果区
+   -------------------------------------------------------------------------- */
 
 .app-layout {
   display: grid !important;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
-  min-height: calc(100vh - 58px);
+  min-height: calc(100vh - 56px);
 }
 
 .parameter-panel,
@@ -108,22 +134,29 @@ textarea,
   min-width: 0;
 }
 
+/* 参数区：整块白底，与灰色页面底色区分 */
 .parameter-panel {
   position: sticky;
   top: 0;
-  height: calc(100vh - 58px);
-  max-height: calc(100vh - 58px);
+  align-self: start;
+  height: calc(100vh - 56px);
+  max-height: calc(100vh - 56px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: 18px 14px 24px;
-  border: 0;
+  gap: 12px;
+  padding: 16px 16px 24px;
   border-right: 1px solid var(--border);
-  border-radius: 0;
   background: var(--surface);
 }
 
+.results-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 面板内的分组标题：形成参数区的内部层次 */
 .panel-title,
 .panel-subtitle,
 .section-title,
@@ -133,41 +166,47 @@ textarea,
 
 .panel-title {
   margin: 0;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
-  font-size: 16px;
-  letter-spacing: 0.01em;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .panel-subtitle {
-  margin: 8px 0 0;
-  padding-top: 14px;
+  margin: 4px 0 0;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
-  font-size: 14px;
-}
-
-.field-label-text,
-.field-label-copy {
-  color: var(--text-muted);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.field-label {
-  display: grid;
-  min-width: 0;
-  gap: 6px;
+.section-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
 }
 
+.section-subtitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 参数分组内部等距，避免依赖默认外边距 */
 .parameter-section {
   min-width: 0;
-  flex-direction: column;
+}
+
+.parameter-section > * + *,
+.file-upload-section > * + * {
+  margin-top: 10px;
 }
 
 .details-summary {
   cursor: pointer;
+  padding: 2px 0;
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -175,79 +214,110 @@ textarea,
   color: var(--accent);
 }
 
-.source-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+/* --------------------------------------------------------------------------
+   字段与控件
+   -------------------------------------------------------------------------- */
+
+.field-label-text,
+.field-label-copy {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.source-switch label,
-.variable-checklist label {
-  cursor: pointer;
-}
-
-.source-switch label {
-  display: inline-flex;
-  align-items: center;
+.field-label {
+  display: grid;
+  min-width: 0;
   gap: 5px;
+  align-content: start;
+}
+
+/* 文本输入：dcc.Input 的边框在容器上，内边距在内层 input 上 */
+.text-input {
+  width: 100% !important;
+  min-width: 0;
+  min-height: var(--control-h);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--text);
-  font-size: 13px;
 }
 
-.source-switch input,
-.variable-checklist input {
-  accent-color: var(--accent);
+.text-input .dash-input-element {
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
-.text-input,
+/* 多行输入：dcc.Textarea 直接渲染 textarea，边框与内边距都在自身 */
 .tag-input {
   width: 100% !important;
   min-width: 0;
+  min-height: 120px;
+  padding: 8px 10px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--text);
-  padding: 9px 10px;
+  resize: vertical;
 }
 
-.text-input::placeholder,
+.text-input .dash-input-element::placeholder,
 .tag-input::placeholder {
   color: #7b8790;
 }
 
-.tag-input {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.text-input:focus,
+.text-input:focus-within,
 .tag-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(23, 107, 135, 0.16);
 }
 
+/* 下拉控件（Dash 4：.dash-dropdown-wrapper > button.dash-dropdown） */
 .select-control {
   min-width: 0;
 }
 
-.select-control .Select-control {
-  min-height: 38px;
+.select-control .dash-dropdown,
+.select-control .dash-dropdown-content {
   border: 1px solid var(--border-strong);
-  box-shadow: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
 }
 
-.select-control.is-focused .Select-control,
-.select-control .Select-control:focus-within {
+.select-control .dash-dropdown {
+  min-height: var(--control-h);
+}
+
+.select-control .dash-dropdown-trigger {
+  padding: 0 10px;
+  min-height: calc(var(--control-h) - 2px);
+}
+
+.select-control .dash-dropdown-option {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.select-control:focus-within .dash-dropdown {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(23, 107, 135, 0.16);
 }
 
+/* 按钮：统一高度、内边距与文字基线 */
 .primary-button,
 .secondary-button {
-  min-height: 38px;
-  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--control-h);
+  padding: 8px 16px;
   border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
-  font-weight: 700;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 
@@ -274,41 +344,29 @@ textarea,
   color: var(--accent-dark);
 }
 
-button:disabled,
-input:disabled,
-textarea:disabled,
-.is-disabled .Select-control {
-  cursor: not-allowed;
-  opacity: 0.55;
+/* 单选 / 复选列表 */
+.source-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
 }
 
-.file-upload-section {
-  min-width: 0;
-  padding: 12px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface-muted);
+.source-switch label,
+.variable-checklist label {
+  cursor: pointer;
 }
 
-.file-input-container {
-  margin: 8px 0 12px;
-}
-
-.file-input-container input[type="file"] {
-  width: 100%;
-  min-width: 0;
-  color: var(--text-muted);
+.source-switch label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
   font-size: 13px;
 }
 
-.file-input-container input[type="file"]::file-selector-button {
-  margin-right: 8px;
-  padding: 7px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
+.source-switch input,
+.variable-checklist input {
+  accent-color: var(--accent);
 }
 
 .variable-checklist {
@@ -318,7 +376,7 @@ textarea:disabled,
   padding: 6px 4px 6px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  background: #fbfcfd;
+  background: var(--surface-muted);
 }
 
 .variable-checklist label {
@@ -336,113 +394,48 @@ textarea:disabled,
   margin-top: 3px;
 }
 
-.status-message {
-  min-height: 20px;
-  margin-top: 8px;
-  padding: 9px 11px;
-  border-left: 3px solid var(--accent);
-  background: #eef5f7;
-  color: var(--text);
-  overflow-wrap: anywhere;
-  font-size: 13px;
-}
-
-.status-message:empty {
-  display: none;
-}
-
-.status-message-secondary {
-  border-left-color: var(--border-strong);
+/* 文件上传 */
+.file-upload-section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
   background: var(--surface-muted);
-  color: var(--text-muted);
 }
 
-.viewer-tabs-parent {
-  min-width: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.viewer-tabs-content {
-  min-width: 0;
-  padding: 18px 20px 24px;
-}
-
-.viewer-tab {
-  min-height: 50px;
-  padding: 14px 24px;
-  border: 0 !important;
-  border-bottom: 2px solid transparent !important;
-  background: var(--surface);
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.viewer-tab-selected {
-  border-bottom-color: var(--accent) !important;
-  color: var(--accent-dark);
-}
-
-.section-title {
-  margin: 0 0 14px;
-  font-size: 18px;
-}
-
-.section-subtitle {
+.file-input-container {
   margin: 0;
-  font-size: 17px;
 }
 
-.log-section {
-  margin: 0 20px 24px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface);
-}
-
-.section-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px 16px;
-  margin-bottom: 14px;
-}
-
-.section-help {
-  margin: 0;
+.file-input-container input[type="file"] {
+  width: 100%;
+  min-width: 0;
   color: var(--text-muted);
   font-size: 13px;
 }
 
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--text-muted);
-  text-align: center;
-  font-size: 13px;
-}
-
-.empty-state strong {
+.file-input-container input[type="file"]::file-selector-button {
+  margin-right: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--text);
-  font-size: 15px;
+  cursor: pointer;
 }
+
+/* --------------------------------------------------------------------------
+   趋势图控件：标签在上、控件在下，且控件底部对齐成一行
+   -------------------------------------------------------------------------- */
 
 .trend-controls {
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(100px, 0.72fr) minmax(110px, 0.85fr) minmax(126px, 0.9fr) !important;
   grid-template-areas: "start end max axis action";
+  align-items: stretch;
   margin-bottom: 12px;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
@@ -462,13 +455,232 @@ textarea:disabled,
   grid-area: axis;
 }
 
+.trend-controls > #show-trend-button {
+  grid-area: action;
+}
+
+/* 控件统一贴底，保证输入框、下拉与按钮在同一水平线上 */
+.trend-basic-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+
 .trend-controls .select-control {
   height: 32px;
   min-height: 32px;
 }
 
+/* 紧凑行高：内联 height 为 32px，min-height 必须小于它才不会撑高 */
+.trend-controls .text-input {
+  min-height: 30px;
+}
+
+.trend-controls .dash-dropdown,
+.trend-controls .dash-dropdown-trigger {
+  min-height: 30px;
+}
+
 .trend-controls > #show-trend-button {
-  grid-area: action;
+  align-self: end;
+}
+
+/* --------------------------------------------------------------------------
+   通用状态：focus / disabled / loading / empty / status
+   -------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 下拉的键盘焦点落在不可见元素上，需要在外层容器显示焦点环 */
+.select-control:focus-within .dash-dropdown-focus-target {
+  outline: none;
+}
+
+/* disabled：降低对比度并给出明确底色，不只依赖透明度 */
+button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled {
+  border-color: var(--border-strong);
+  background: var(--fill-disabled);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+input:disabled,
+textarea:disabled,
+.select-control .dash-dropdown:disabled {
+  background: var(--fill-disabled);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.loading-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.loading-message::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-message::before {
+    animation: none;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.empty-state strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* 状态条：文字标签 + 消息，不依赖颜色区分 */
+.status-row {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.status-label {
+  padding-top: 9px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status-message {
+  min-height: 20px;
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 日志区：状态标签与消息同一行，消息不再额外上移 */
+.status-row .status-message {
+  margin: 0;
+}
+
+.status-message-secondary {
+  border-left-color: var(--border-strong);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.status-message:empty {
+  display: none;
+}
+
+/* 摘要区在没有结果时给出提示（无需额外组件） */
+#statistics-cards:empty::before {
+  content: "加载数据并点击“显示趋势”后，这里显示每个位号的统计摘要。";
+  grid-column: 1 / -1;
+  display: block;
+  padding: 18px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------------------
+   结果区：Tab、图表框、详情区、日志区
+   -------------------------------------------------------------------------- */
+
+.viewer-tabs-parent {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* .viewer-tabs 落在 Tab 条容器上（Dash 4 的 .tab-container） */
+.viewer-tabs {
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.viewer-tabs-content {
+  min-width: 0;
+  padding: 16px 20px 24px;
+}
+
+/* tab-parent 会裁剪内容，因此焦点环画在内侧 */
+.viewer-tab {
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  background-color: transparent !important;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.viewer-tab:hover {
+  color: var(--text);
+}
+
+.viewer-tab-selected {
+  border-bottom-color: var(--accent) !important;
+  background-color: var(--surface) !important;
+  color: var(--accent-dark);
+}
+
+.viewer-tab:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
 }
 
 .visualization-frame,
@@ -476,13 +688,13 @@ textarea:disabled,
   position: relative;
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.04);
+  box-shadow: var(--shadow-1);
 }
 
 .visualization-frame {
-  min-height: clamp(320px, 48vh, 560px);
+  min-height: clamp(320px, 46vh, 540px);
   padding: 8px 10px 0;
   overflow: hidden;
 }
@@ -492,26 +704,66 @@ textarea:disabled,
   position: absolute;
   z-index: 2;
   inset: 0;
+  margin: 12px;
   pointer-events: none;
 }
 
 .trend-graph {
   width: 100%;
   min-width: 0;
-  height: clamp(320px, 48vh, 560px) !important;
+  height: clamp(320px, 46vh, 540px) !important;
 }
 
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 12px;
+}
+
+.section-help {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 详情区：与图表区分开的白底卡片 */
 .detail-section {
   margin-top: 14px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius);
   background: var(--surface);
-  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.03);
+  box-shadow: var(--shadow-1);
 }
 
 .detail-content {
-  padding: 14px 16px 16px;
+  padding: 12px 16px 16px;
 }
+
+.detail-content > .section-subtitle {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* 日志区：灰底，与结果区的白底卡片形成层级差 */
+.log-section {
+  margin: 14px 20px 24px;
+  padding: 12px 16px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.log-section .status-row + .status-row {
+  margin-top: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   各 Tab 内部元素
+   -------------------------------------------------------------------------- */
 
 .statistics-cards {
   min-width: 0;
@@ -520,12 +772,12 @@ textarea:disabled,
 
 .statistics-card {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--surface);
   min-height: 300px;
   height: 100%;
   padding: 12px;
-  box-shadow: 0 1px 2px rgba(25, 44, 58, 0.03);
+  box-shadow: var(--shadow-1);
 }
 
 .statistics-card h3 {
@@ -555,7 +807,7 @@ textarea:disabled,
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .scatter-title-row .section-title {
@@ -568,7 +820,7 @@ textarea:disabled,
 }
 
 .scatter-visualization-frame {
-  min-height: clamp(320px, 48vh, 560px);
+  min-height: clamp(320px, 46vh, 540px);
   margin-top: 14px;
   padding: 8px;
   overflow-x: auto;
@@ -588,7 +840,7 @@ textarea:disabled,
 .boxplot-graph {
   width: 100%;
   min-width: 0;
-  height: clamp(320px, 48vh, 560px) !important;
+  height: clamp(320px, 46vh, 540px) !important;
 }
 
 .control-chart-visualization-frame {
@@ -609,29 +861,40 @@ textarea:disabled,
   min-width: 0;
 }
 
-.loading-message {
-  padding: 10px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 13px;
-}
+/* --------------------------------------------------------------------------
+   响应式：窄屏纵向堆叠，参数区在上、结果区在下
+   -------------------------------------------------------------------------- */
 
 @media (max-width: 900px) {
   .app-layout {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 0;
   }
 
   .parameter-panel {
     position: static;
     height: auto;
     max-height: none;
+    overflow: visible;
+    padding: 16px 16px 20px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   .viewer-tabs-content {
-    padding: 18px;
+    padding: 16px;
+  }
+
+  /* Tab 条改为可横向滚动，避免纵向堆叠占用整屏 */
+  .viewer-tabs {
+    flex-direction: row !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .viewer-tab {
+    flex: 0 0 auto !important;
+    padding: 12px 14px;
   }
 
   .trend-controls {
@@ -641,6 +904,10 @@ textarea:disabled,
 
   .statistics-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .log-section {
+    margin: 14px 16px 20px;
   }
 }
 
@@ -652,28 +919,38 @@ textarea:disabled,
 }
 
 @media (max-width: 640px) {
-  .page-shell {
-    padding: 0;
-  }
-
   .page-header {
-    min-height: 54px;
-    padding: 0 14px;
+    min-height: 52px;
+    padding: 10px 14px;
   }
 
-  .viewer-tabs-content,
-  .log-section {
+  .page-header h1 {
+    font-size: 18px;
+  }
+
+  .viewer-tabs-content {
     padding: 14px;
   }
 
-  .log-section {
-    margin-right: 14px;
-    margin-left: 14px;
+  .viewer-tab {
+    padding: 11px 12px;
+    font-size: 13px;
   }
 
-  .viewer-tab {
-    padding: 11px 10px;
-    font-size: 13px;
+  .log-section {
+    margin: 14px;
+    padding: 12px 14px 14px;
+  }
+
+  /* 状态标签改为独占一行，消息整宽显示 */
+  .status-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .status-label {
+    padding-top: 0;
+    font-size: 12px;
   }
 
   .scatter-axis-group,
@@ -685,4 +962,33 @@ textarea:disabled,
     width: 100% !important;
   }
 
+  /* 触控目标加大到 44px（内联高度用 !important 覆盖） */
+  .text-input,
+  .tag-input,
+  .primary-button,
+  .secondary-button,
+  .trend-controls .text-input,
+  .trend-controls .select-control,
+  .trend-controls > #show-trend-button {
+    min-height: 44px;
+    height: auto !important;
+  }
+
+  .select-control .dash-dropdown {
+    min-height: 44px;
+  }
+
+  .trend-controls .dash-dropdown,
+  .trend-controls .dash-dropdown-trigger,
+  .trend-controls .text-input {
+    min-height: 42px;
+  }
+
+  .variable-checklist label {
+    padding: 9px 0;
+  }
+
+  .source-switch {
+    gap: 10px 16px;
+  }
 }

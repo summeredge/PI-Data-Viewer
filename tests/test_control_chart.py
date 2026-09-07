@@ -27,9 +27,10 @@ def test_control_chart_tab_uses_the_shared_variable_selector():
         "Trend",
         "XY Scatter",
         "Box Plot",
+        "Probability Plot",
         "Control Chart",
     ]
-    control_tab = tabs.children[3]
+    control_tab = tabs.children[4]
     component_ids = {
         component.id
         for component in _components(control_tab)

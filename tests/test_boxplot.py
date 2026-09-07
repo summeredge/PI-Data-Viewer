@@ -32,6 +32,7 @@ def test_boxplot_is_a_separate_tab_and_preserves_existing_tab_contents():
         "Trend",
         "XY Scatter",
         "Box Plot",
+        "Probability Plot",
         "Control Chart",
     ]
     trend_ids = {
@@ -124,7 +125,7 @@ def test_render_boxplot_view_uses_shared_frame_and_selected_columns():
     frame = pd.DataFrame({"PV1": [1, 2], "PV2": [10, 20], "PV3": [100, 200]})
     store_dataframe(frame)
 
-    figure, selected_text, status = viewer.render_boxplot_view(
+    figure, selected_text, status, frame_style = viewer.render_boxplot_view(
         {"ready": True}, ["PV1", "PV3"], "shared"
     )
 
@@ -136,21 +137,73 @@ def test_render_boxplot_view_uses_shared_frame_and_selected_columns():
 
 def test_render_boxplot_view_prompts_for_selection_or_data():
     store_dataframe(pd.DataFrame({"PV1": [1, 2]}))
-    _, selected_text, selection_status = viewer.render_boxplot_view(
+    _, selected_text, selection_status, _ = viewer.render_boxplot_view(
         {"ready": True}, []
     )
     assert selected_text == "未选择变量"
     assert selection_status == "请至少选择一个变量"
 
     store_dataframe(pd.DataFrame({"PV1": ["bad", None]}))
-    _, _, data_status = viewer.render_boxplot_view({"ready": True}, ["PV1"])
+    _, _, data_status, _ = viewer.render_boxplot_view({"ready": True}, ["PV1"])
     assert data_status == "所选变量无有效数值数据"
 
     empty_frame = pd.DataFrame(columns=["PV1"])
     store_dataframe(empty_frame)
-    figure, selected_text, empty_status = viewer.render_boxplot_view(
+    figure, selected_text, empty_status, _ = viewer.render_boxplot_view(
         {"ready": True}, ["PV1"]
     )
     assert len(figure.data) == 0
     assert selected_text == "PV1"
     assert empty_status == "暂无可用数据"
+
+
+def test_boxplot_frame_width_keeps_each_column_at_one_eighth():
+    frame = pd.DataFrame(
+        {f"PV{index}": [float(index), 2.0] for index in range(1, 9)}
+    )
+    store_dataframe(frame)
+
+    frame_ids = {
+        component.id for component in _components(viewer.layout) if hasattr(component, "id")
+    }
+    assert "boxplot-visualization-frame" in frame_ids
+
+    _, _, _, eight_style = viewer.render_boxplot_view(
+        {"ready": True}, list(frame.columns)
+    )
+    assert eight_style == {"width": "100%"}
+
+    _, _, _, two_style = viewer.render_boxplot_view({"ready": True}, ["PV1", "PV2"])
+    assert two_style == {"width": "100%"}
+
+    _, _, _, one_style = viewer.render_boxplot_view({"ready": True}, ["PV1"])
+    assert one_style == {"width": "100%"}
+
+    store_dataframe(pd.DataFrame({"PV1": ["bad", None]}))
+    _, _, _, no_data_style = viewer.render_boxplot_view({"ready": True}, ["PV1"])
+    assert no_data_style == {"width": "100%"}
+
+
+def test_boxplot_figure_always_has_eight_subplot_columns():
+    frame = pd.DataFrame({f"PV{i}": [1.0, 2.0, 3.0] for i in range(1, 9)})
+
+    one = create_boxplot_figure(frame, ["PV1"])
+    assert len(one.data) == 1
+    xaxis_keys = sorted(
+        key for key in one.layout
+        if key == "xaxis" or (key.startswith("xaxis") and key[5:].isdigit())
+    )
+    assert xaxis_keys == [
+        "xaxis", "xaxis2", "xaxis3", "xaxis4",
+        "xaxis5", "xaxis6", "xaxis7", "xaxis8",
+    ]
+    assert one.layout.xaxis.visible is True
+    for hidden in ("xaxis2", "xaxis3", "xaxis4", "xaxis5", "xaxis6", "xaxis7", "xaxis8"):
+        assert getattr(one.layout, hidden).visible is False
+    assert one.layout.margin.b == 110
+
+    two = create_boxplot_figure(frame, ["PV1", "PV2"])
+    assert len(two.data) == 2
+    assert two.layout.xaxis2.visible is True
+    for hidden in ("xaxis3", "xaxis4", "xaxis5", "xaxis6", "xaxis7", "xaxis8"):
+        assert getattr(two.layout, hidden).visible is False

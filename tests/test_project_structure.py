@@ -23,6 +23,7 @@ REQUIRED_PATHS = (
     "charts/scatter.py",
     "charts/histogram.py",
     "charts/boxplot.py",
+    "charts/probability.py",
     "charts/control_chart.py",
     "charts/heatmap.py",
     "layout/__init__.py",
@@ -53,6 +54,7 @@ def test_module_imports():
         "charts.scatter",
         "backend.spc",
         "charts.boxplot",
+        "charts.probability",
         "charts.control_chart",
         "pages.viewer",
     ):
@@ -64,6 +66,13 @@ def test_dash_app_imports():
 
     assert app.title == "PI Data Viewer"
     assert app.layout is not None
+
+
+def test_probability_chart_does_not_read_external_data_sources():
+    source = (PROJECT_ROOT / "charts/probability.py").read_text(encoding="utf-8")
+
+    for forbidden in ("read_pi_data", "backend.pi_reader", "read_local_file"):
+        assert forbidden not in source
 
 
 def test_project_ignore_and_start_paths():

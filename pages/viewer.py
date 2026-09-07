@@ -24,6 +24,10 @@ from charts.control_chart import (
     SINGLE_VARIABLE_MESSAGE,
     create_control_chart,
 )
+from charts.probability import (
+    SINGLE_VARIABLE_MESSAGE as PROBABILITY_SINGLE_VARIABLE_MESSAGE,
+    create_probability_plot_figure,
+)
 from charts.trend import create_distribution_figure, create_trend_figure
 
 
@@ -133,6 +137,10 @@ def _empty_control_chart_figure():
     return create_control_chart(
         pd.DataFrame(index=pd.DatetimeIndex([], name="Timestamp")), []
     )
+
+
+def _empty_probability_plot_figure():
+    return create_probability_plot_figure(pd.DataFrame(), [])
 
 
 def _selected_columns(frame: pd.DataFrame, selected_columns=None) -> list:
@@ -681,6 +689,15 @@ def render_scatter_view(
         return _empty_scatter_figure(), str(exc)
 
 
+def _boxplot_frame_style(figure) -> dict:
+    """每个箱体固定为子图列宽的 1/8 = 1/8 页面宽度；空位号始终 100% 容纳提示。"""
+
+    count = len(figure.data)
+    if not count:
+        return {"width": "100%"}
+    return {"width": "100%"}
+
+
 def render_boxplot_view(
     viewer_state,
     selected_columns=None,
@@ -688,24 +705,33 @@ def render_boxplot_view(
 ):
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
-        return _empty_boxplot_figure(), "未选择变量", state.get("status") or "尚未加载数据"
+        figure = _empty_boxplot_figure()
+        return figure, "未选择变量", state.get("status") or "尚未加载数据", _boxplot_frame_style(figure)
 
     current = get_dataframe()
     if current is None:
-        return _empty_boxplot_figure(), "未选择变量", "尚未加载数据"
+        figure = _empty_boxplot_figure()
+        return figure, "未选择变量", "尚未加载数据", _boxplot_frame_style(figure)
 
     selected = _selected_columns(current, selected_columns)
     if not selected:
-        return create_boxplot_figure(current, []), "未选择变量", "请至少选择一个变量"
+        figure = create_boxplot_figure(current, [])
+        return figure, "未选择变量", "请至少选择一个变量", _boxplot_frame_style(figure)
 
     try:
         figure = create_boxplot_figure(current, selected, axis_mode)
     except (TypeError, ValueError) as exc:
-        return _empty_boxplot_figure(), ", ".join(map(str, selected)), str(exc)
+        return (
+            _empty_boxplot_figure(),
+            ", ".join(map(str, selected)),
+            str(exc),
+            {"width": "100%"},
+        )
+    frame_style = _boxplot_frame_style(figure)
     if current.empty:
-        return figure, ", ".join(map(str, selected)), "暂无可用数据"
+        return figure, ", ".join(map(str, selected)), "暂无可用数据", frame_style
     status = "" if figure.data else "所选变量无有效数值数据"
-    return figure, ", ".join(map(str, selected)), status
+    return figure, ", ".join(map(str, selected)), status, frame_style
 
 
 def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
@@ -742,6 +768,43 @@ def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
     if current.empty:
         return figure, selected_text, "暂无可用数据"
     return figure, selected_text, "" if figure.data else "所选变量无有效数值数据"
+
+
+def render_probability_plot_view(viewer_state, selected_columns=None):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if not state.get("ready"):
+        return (
+            _empty_probability_plot_figure(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
+
+    current = get_dataframe()
+    if current is None:
+        return _empty_probability_plot_figure(), "未选择变量", "尚未加载数据"
+
+    selected = [] if selected_columns is None else _selected_columns(current, selected_columns)
+    selected_text = ", ".join(map(str, selected)) or "未选择变量"
+    if len(selected) > 1:
+        return (
+            create_probability_plot_figure(current, selected),
+            selected_text,
+            PROBABILITY_SINGLE_VARIABLE_MESSAGE,
+        )
+    if not selected:
+        return (
+            create_probability_plot_figure(current, []),
+            selected_text,
+            "请至少选择一个变量",
+        )
+
+    try:
+        figure = create_probability_plot_figure(current, selected)
+    except (TypeError, ValueError) as exc:
+        return _empty_probability_plot_figure(), selected_text, str(exc)
+    if current.empty:
+        return figure, selected_text, "暂无可用数据"
+    return figure, selected_text, "" if figure.data else "所选变量无法生成概率图"
 
 
 def update_scatter_variable_options(viewer_state):
@@ -1072,7 +1135,7 @@ layout = html.Div(
                                                 "display": "grid",
                                                 "gridTemplateColumns": "repeat(5, minmax(0, 1fr))",
                                                 "gap": "0.5rem",
-                                                "alignItems": "end",
+                                                "alignItems": "stretch",
                                             },
                                         ),
                                         dcc.Loading(
@@ -1206,6 +1269,7 @@ layout = html.Div(
                                             id="scatter-status",
                                             className="status-message",
                                             role="status",
+                                            children="尚未生成散点矩阵",
                                             **{"aria-live": "polite"},
                                         ),
                                         dcc.Loading(
@@ -1292,6 +1356,7 @@ layout = html.Div(
                                             id="boxplot-status",
                                             className="status-message",
                                             role="status",
+                                            children="尚未生成箱线图",
                                             **{"aria-live": "polite"},
                                         ),
                                         html.Div(
@@ -1315,6 +1380,54 @@ layout = html.Div(
                                                 ),
                                             ),
                                             className="visualization-frame boxplot-visualization-frame",
+                                            id="boxplot-visualization-frame",
+                                        ),
+                                    ],
+                                ),
+                                dcc.Tab(
+                                    label="Probability Plot",
+                                    value="probability-plot-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="probability-plot-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            id="probability-plot-status",
+                                            className="status-message",
+                                            role="status",
+                                            children="尚未生成概率图",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="probability-plot-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成概率图…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                dcc.Graph(
+                                                    id="probability-plot-graph",
+                                                    className="probability-plot-graph",
+                                                    figure=_empty_probability_plot_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "600px"},
+                                                ),
+                                                className="visualization-frame probability-plot-visualization-frame",
+                                            ),
                                         ),
                                     ],
                                 ),
@@ -1359,6 +1472,7 @@ layout = html.Div(
                                             id="control-chart-status",
                                             className="status-message",
                                             role="status",
+                                            children="尚未生成控制图",
                                             **{"aria-live": "polite"},
                                         ),
                                         dcc.Loading(
@@ -1399,28 +1513,40 @@ layout = html.Div(
                                     ],
                                     className="section-heading",
                                 ),
-                                dcc.Loading(
-                                    id="data-status-loading",
-                                    type="dot",
-                                    color="#176b87",
-                                    custom_spinner=html.Div(
-                                        "正在读取数据…",
-                                        className="loading-message",
-                                    ),
-                                    children=html.Div(
-                                        id="load-status",
-                                        className="status-message",
-                                        role="status",
-                                        children="尚未加载数据",
-                                        **{"aria-live": "polite"},
-                                    ),
+                                html.Div(
+                                    [
+                                        html.Span("数据状态", className="status-label"),
+                                        dcc.Loading(
+                                            id="data-status-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在读取数据…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                id="load-status",
+                                                className="status-message",
+                                                role="status",
+                                                children="尚未加载数据",
+                                                **{"aria-live": "polite"},
+                                            ),
+                                        ),
+                                    ],
+                                    className="status-row",
                                 ),
                                 html.Div(
-                                    id="query-status",
-                                    className="status-message status-message-secondary",
-                                    role="status",
-                                    children="等待趋势或散点操作",
-                                    **{"aria-live": "polite"},
+                                    [
+                                        html.Span("操作状态", className="status-label"),
+                                        html.Div(
+                                            id="query-status",
+                                            className="status-message status-message-secondary",
+                                            role="status",
+                                            children="等待趋势或散点操作",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                    ],
+                                    className="status-row",
                                 ),
                             ],
                             className="log-section",
@@ -1546,11 +1672,21 @@ def register_callbacks(app) -> None:
         Output("boxplot-graph", "figure"),
         Output("boxplot-selected-columns", "children"),
         Output("boxplot-status", "children"),
+        Output("boxplot-visualization-frame", "style"),
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
         Input("boxplot-axis-mode", "value"),
         prevent_initial_call=True,
     )(render_boxplot_view)
+
+    app.callback(
+        Output("probability-plot-graph", "figure"),
+        Output("probability-plot-selected-columns", "children"),
+        Output("probability-plot-status", "children"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        prevent_initial_call=True,
+    )(render_probability_plot_view)
 
     app.callback(
         Output("control-chart-graph", "figure"),

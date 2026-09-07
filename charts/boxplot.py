@@ -7,6 +7,11 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from backend.pi_reader import MAX_TAGS
+
+
+_BOX_COLUMNS = MAX_TAGS
+
 
 def _message_figure(message: str) -> go.Figure:
     figure = go.Figure()
@@ -64,8 +69,9 @@ def create_boxplot_figure(
 
     figure = make_subplots(
         rows=1,
-        cols=len(values_by_column),
+        cols=_BOX_COLUMNS,
         shared_yaxes=axis_mode == "shared",
+        column_widths=[1 / _BOX_COLUMNS] * _BOX_COLUMNS,
     )
     for index, (column, values) in enumerate(values_by_column, start=1):
         figure.add_trace(
@@ -78,8 +84,18 @@ def create_boxplot_figure(
             row=1,
             col=index,
         )
-        figure.update_xaxes(tickangle=-30, automargin=True, row=1, col=index)
-        figure.update_yaxes(automargin=True, row=1, col=index)
+        figure.update_xaxes(
+            visible=True,
+            tickangle=-30,
+            automargin=True,
+            row=1,
+            col=index,
+        )
+        figure.update_yaxes(visible=True, automargin=True, row=1, col=index)
+
+    for empty_index in range(len(values_by_column) + 1, _BOX_COLUMNS + 1):
+        figure.update_xaxes(visible=False, row=1, col=empty_index)
+        figure.update_yaxes(visible=False, row=1, col=empty_index)
 
     figure.update_layout(
         template="plotly_white",

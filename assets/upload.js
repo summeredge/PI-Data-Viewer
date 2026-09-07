@@ -29,12 +29,60 @@
     });
   }
 
+  /* Dash 4 的 Tab 渲染为 plain div：补 role/tabindex 与方向键、Enter 操作 */
+  function makeTabsKeyboardAccessible() {
+    const tabBar = document.querySelector(".viewer-tabs");
+    if (!tabBar) return;
+
+    const tabs = Array.from(tabBar.querySelectorAll(".viewer-tab"));
+    if (!tabs.length) return;
+
+    tabBar.setAttribute("role", "tablist");
+    tabs.forEach(function (tab) {
+      const selected = tab.classList.contains("viewer-tab-selected");
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("tabindex", selected ? "0" : "-1");
+      if (tab.dataset.keyboardTabs) return;
+
+      tab.dataset.keyboardTabs = "true";
+      tab.addEventListener("keydown", function (event) {
+        const current = Array.from(tabBar.querySelectorAll(".viewer-tab"));
+        const index = current.indexOf(tab);
+        let target = null;
+
+        if (event.key === "ArrowRight") {
+          target = current[(index + 1) % current.length];
+        } else if (event.key === "ArrowLeft") {
+          target = current[(index - 1 + current.length) % current.length];
+        } else if (event.key === "Home") {
+          target = current[0];
+        } else if (event.key === "End") {
+          target = current[current.length - 1];
+        } else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          tab.click();
+          return;
+        }
+
+        if (!target) return;
+        event.preventDefault();
+        target.click();
+        requestAnimationFrame(function () {
+          const focused = tabBar.querySelector(".viewer-tab-selected");
+          if (focused) focused.focus();
+        });
+      });
+    });
+  }
+
   function watchLayout() {
     addFileInput();
     reverseTrendZoomMask();
+    makeTabsKeyboardAccessible();
     new MutationObserver(function () {
       addFileInput();
       reverseTrendZoomMask();
+      makeTabsKeyboardAccessible();
     }).observe(document.body, {
       childList: true,
       subtree: true,

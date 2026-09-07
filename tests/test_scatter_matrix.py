@@ -54,6 +54,7 @@ def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
         "Trend",
         "XY Scatter",
         "Box Plot",
+        "Probability Plot",
         "Control Chart",
     ]
     assert not any(
