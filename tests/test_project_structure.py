@@ -19,6 +19,7 @@ REQUIRED_PATHS = (
     "backend/statistics.py",
     "backend/spc.py",
     "backend/capability.py",
+    "backend/frequency.py",
     "charts/__init__.py",
     "charts/trend.py",
     "charts/scatter.py",
@@ -27,6 +28,7 @@ REQUIRED_PATHS = (
     "charts/probability.py",
     "charts/control_chart.py",
     "charts/capability.py",
+    "charts/frequency.py",
     "charts/heatmap.py",
     "layout/__init__.py",
     "layout/sidebar.py",
@@ -56,10 +58,12 @@ def test_module_imports():
         "charts.scatter",
         "backend.spc",
         "backend.capability",
+        "backend.frequency",
         "charts.boxplot",
         "charts.probability",
         "charts.control_chart",
         "charts.capability",
+        "charts.frequency",
         "pages.viewer",
     ):
         assert import_module(module_name)
@@ -94,6 +98,23 @@ def test_capability_modules_do_not_read_external_data_sources_or_copy_imr_sigma(
     )
     assert "1.128" not in capability_source
     assert "calculate_imr" in capability_source
+
+
+def test_frequency_modules_do_not_read_external_data_or_repair_sampling():
+    for relative_path in ("backend/frequency.py", "charts/frequency.py"):
+        source = (PROJECT_ROOT / relative_path).read_text(encoding="utf-8")
+        for forbidden in (
+            "read_pi_data",
+            "backend.pi_reader",
+            "read_local_file",
+            "store_dataframe",
+        ):
+            assert forbidden not in source
+    frequency_source = (PROJECT_ROOT / "backend/frequency.py").read_text(
+        encoding="utf-8"
+    )
+    for forbidden in (".resample(", ".interpolate(", ".ffill(", ".bfill("):
+        assert forbidden not in frequency_source
 
 
 def test_project_ignore_and_start_paths():

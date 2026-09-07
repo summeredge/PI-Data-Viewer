@@ -30,6 +30,7 @@ def test_control_chart_tab_uses_the_shared_variable_selector():
         "Probability Plot",
         "Capability Analysis",
         "Control Chart",
+        "Frequency Analysis",
     ]
     control_tab = tabs.children[5]
     component_ids = {

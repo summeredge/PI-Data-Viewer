@@ -35,6 +35,7 @@ def test_boxplot_is_a_separate_tab_and_preserves_existing_tab_contents():
         "Probability Plot",
         "Capability Analysis",
         "Control Chart",
+        "Frequency Analysis",
     ]
     trend_ids = {
         component.id

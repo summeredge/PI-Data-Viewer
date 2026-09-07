@@ -57,6 +57,7 @@ def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
         "Probability Plot",
         "Capability Analysis",
         "Control Chart",
+        "Frequency Analysis",
     ]
     assert not any(
         getattr(component, "className", None) == "section-title"

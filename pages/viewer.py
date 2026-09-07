@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 
 from backend.capability import calculate_normal_capability
 from backend.dataframe_store import get_dataframe, store_dataframe
+from backend.frequency import calculate_fft_spectrum
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
 from backend.statistics import calculate_series_summary, calculate_statistics
 from charts.scatter import (
@@ -29,6 +30,10 @@ from charts.control_chart import (
     DEFAULT_MAX_CONTROL_POINTS,
     SINGLE_VARIABLE_MESSAGE,
     create_control_chart,
+)
+from charts.frequency import (
+    SINGLE_VARIABLE_MESSAGE as FREQUENCY_SINGLE_VARIABLE_MESSAGE,
+    create_frequency_figure,
 )
 from charts.probability import (
     SINGLE_VARIABLE_MESSAGE as PROBABILITY_SINGLE_VARIABLE_MESSAGE,
@@ -145,6 +150,10 @@ def _empty_control_chart_figure():
     )
 
 
+def _empty_frequency_figure():
+    return create_frequency_figure(None, None)
+
+
 def _empty_probability_plot_figure():
     return create_probability_plot_figure(pd.DataFrame(), [])
 
@@ -226,6 +235,79 @@ def _capability_summary(result) -> html.Div:
             for title, items in sections
         ],
         className="capability-summary-content",
+    )
+
+
+def _format_frequency_value(value, suffix="") -> str:
+    try:
+        value = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return "—"
+    return f"{value:.6g}{suffix}" if math.isfinite(value) else "—"
+
+
+def _format_sampling_interval(seconds) -> str:
+    try:
+        seconds = float(seconds)
+    except (TypeError, ValueError, OverflowError):
+        return "—"
+    if not math.isfinite(seconds):
+        return "—"
+    if math.isclose(seconds / 3600, round(seconds / 3600), rel_tol=0, abs_tol=1e-9):
+        return f"{seconds / 3600:g} h"
+    if math.isclose(seconds / 60, round(seconds / 60), rel_tol=0, abs_tol=1e-9):
+        return f"{seconds / 60:g} min"
+    return f"{seconds:.6g} s"
+
+
+def _empty_frequency_summary():
+    return html.Div()
+
+
+def _frequency_summary(result) -> html.Div:
+    if not isinstance(result, dict):
+        return _empty_frequency_summary()
+    rows = (
+        ("N", str(result.get("sample_size", "—"))),
+        (
+            "Sampling Interval",
+            _format_sampling_interval(result.get("sampling_interval_seconds")),
+        ),
+        ("Duration", _format_frequency_value(result.get("duration_hours"), " h")),
+        (
+            "Nyquist Frequency",
+            _format_frequency_value(result.get("nyquist_cph"), " cycles/hour"),
+        ),
+        (
+            "Frequency Resolution",
+            _format_frequency_value(
+                result.get("frequency_resolution_cph"), " cycles/hour"
+            ),
+        ),
+        (
+            "Dominant Frequency",
+            _format_frequency_value(
+                result.get("dominant_frequency_cph"), " cycles/hour"
+            ),
+        ),
+        (
+            "Dominant Period",
+            _format_frequency_value(result.get("dominant_period_hours"), " h"),
+        ),
+        ("Dominant Amplitude", _format_frequency_value(result.get("dominant_amplitude"))),
+    )
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Span(label, className="frequency-summary-label"),
+                    html.Strong(value, className="frequency-summary-value"),
+                ],
+                className="frequency-summary-item",
+            )
+            for label, value in rows
+        ],
+        className="frequency-summary-content",
     )
 
 
@@ -854,6 +936,45 @@ def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
     if current.empty:
         return figure, selected_text, "暂无可用数据"
     return figure, selected_text, "" if figure.data else "所选变量无有效数值数据"
+
+
+def render_frequency_view(viewer_state, selected_columns=None):
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if not state.get("ready"):
+        return (
+            _empty_frequency_figure(),
+            _empty_frequency_summary(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
+
+    current = get_dataframe()
+    if current is None:
+        return _empty_frequency_figure(), _empty_frequency_summary(), "未选择变量", "尚未加载数据"
+
+    selected = [] if selected_columns is None else _selected_columns(current, selected_columns)
+    selected_text = ", ".join(map(str, selected)) or "未选择变量"
+    if not selected:
+        return (
+            _empty_frequency_figure(),
+            _empty_frequency_summary(),
+            selected_text,
+            "请至少选择一个变量",
+        )
+    if len(selected) != 1:
+        return (
+            create_frequency_figure(selected, None),
+            _empty_frequency_summary(),
+            selected_text,
+            FREQUENCY_SINGLE_VARIABLE_MESSAGE,
+        )
+
+    try:
+        result = calculate_fft_spectrum(current[selected[0]])
+        figure = create_frequency_figure(selected[0], result)
+    except (TypeError, ValueError) as exc:
+        return _empty_frequency_figure(), _empty_frequency_summary(), selected_text, str(exc)
+    return figure, _frequency_summary(result), selected_text, ""
 
 
 def render_probability_plot_view(viewer_state, selected_columns=None):
@@ -1723,6 +1844,59 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
+                                dcc.Tab(
+                                    label="Frequency Analysis",
+                                    value="frequency-analysis-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.P(
+                                            "FFT 用于识别等间隔工业时序数据中的周期性成分。分析前自动去除均值并应用 Hann 窗。FFT 要求连续且等间隔采样；本工具不会自动插值或重采样数据。",
+                                            className="section-help",
+                                        ),
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="frequency-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Div(
+                                            id="frequency-status",
+                                            className="status-message",
+                                            role="status",
+                                            children="尚未生成频谱",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="frequency-loading",
+                                            type="dot",
+                                            color="#176b87",
+                                            custom_spinner=html.Div(
+                                                "正在生成频谱…",
+                                                className="loading-message",
+                                            ),
+                                            children=dcc.Graph(
+                                                id="frequency-graph",
+                                                className="frequency-graph",
+                                                figure=_empty_frequency_figure(),
+                                                config={
+                                                    "displaylogo": False,
+                                                    "scrollZoom": False,
+                                                },
+                                                style={"height": "600px"},
+                                            ),
+                                        ),
+                                        html.Div(
+                                            id="frequency-summary",
+                                            className="frequency-summary",
+                                            children=_empty_frequency_summary(),
+                                        ),
+                                    ],
+                                ),
                             ],
                         ),
                         html.Section(
@@ -1933,6 +2107,16 @@ def register_callbacks(app) -> None:
         Input("control-chart-tests", "value"),
         prevent_initial_call=True,
     )(render_control_chart_view)
+
+    app.callback(
+        Output("frequency-graph", "figure"),
+        Output("frequency-summary", "children"),
+        Output("frequency-selected-columns", "children"),
+        Output("frequency-status", "children"),
+        Input("viewer-state", "data"),
+        Input("variable-selector", "value"),
+        prevent_initial_call=True,
+    )(render_frequency_view)
 
     app.callback(
         Output("load-status", "children"),

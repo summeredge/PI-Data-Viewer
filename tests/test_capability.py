@@ -50,6 +50,7 @@ def test_capability_tab_has_required_controls_and_shared_selector_contract():
         "Probability Plot",
         "Capability Analysis",
         "Control Chart",
+        "Frequency Analysis",
     ]
     capability_tab = tabs.children[4]
     component_ids = {
