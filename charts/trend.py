@@ -42,7 +42,7 @@ def create_trend_figure(
         figure.add_trace(trace)
 
     xaxis = {
-        "title": "Time",
+        "title": "时间",
         "type": "date",
         "tickformat": "%Y-%m-%d\n%H:%M:%S",
         "rangeslider": {"visible": False},
@@ -54,9 +54,9 @@ def create_trend_figure(
             maxallowed=valid_index.max(),
         )
 
-    y_axes = {"yaxis": {"title": "Value", "fixedrange": True}}
+    y_axes = {"yaxis": {"title": "数值", "fixedrange": True}}
     if axis_mode == "independent":
-        y_axes["yaxis"]["title"] = str(columns[0]) if len(columns) else "Value"
+        y_axes["yaxis"]["title"] = str(columns[0]) if len(columns) else "数值"
         for index, column in enumerate(columns[1:], start=2):
             y_axes[f"yaxis{index}"] = {
                 "title": str(column) if index == 2 else None,
@@ -73,7 +73,7 @@ def create_trend_figure(
         xaxis=xaxis,
         **y_axes,
         legend={
-            "title": "Tag",
+            "title": "位号",
             "orientation": "h",
             "x": 0,
             "xanchor": "left",

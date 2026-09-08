@@ -15,13 +15,13 @@ DEFAULT_SPECIAL_CAUSE_TESTS = (1,)
 def _normalize_tests(tests, max_test: int) -> tuple[int, ...]:
     tests = DEFAULT_SPECIAL_CAUSE_TESTS if tests is None else tests
     if isinstance(tests, (str, bytes)):
-        raise ValueError("tests must contain test numbers")
+        raise ValueError("检验选项必须是检验编号")
     try:
         selected = tuple(dict.fromkeys(int(test) for test in tests))
     except (TypeError, ValueError) as exc:
-        raise ValueError("tests must contain test numbers") from exc
+        raise ValueError("检验选项必须是检验编号") from exc
     if any(test < 1 or test > max_test for test in selected):
-        raise ValueError(f"tests must be between 1 and {max_test}")
+        raise ValueError(f"检验编号必须在 1 到 {max_test} 之间")
     return selected
 
 

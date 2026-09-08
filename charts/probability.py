@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from scipy import stats
 
 
-SINGLE_VARIABLE_MESSAGE = "Probability Plot 仅支持单变量，请只选择一个变量"
+SINGLE_VARIABLE_MESSAGE = "概率图仅支持单变量，请只选择一个变量"
 NO_SELECTION_MESSAGE = "请选择一个变量"
 NO_VALID_DATA_MESSAGE = "所选变量无有效数值数据"
 INSUFFICIENT_DATA_MESSAGE = "有效数值点不足，至少需要 3 个有限数值点"
@@ -31,7 +31,7 @@ def _message_figure(message: str) -> go.Figure:
     )
     figure.update_layout(
         template="plotly_white",
-        title="Probability Plot",
+        title="概率图",
         height=600,
         margin={"l": 70, "r": 30, "t": 55, "b": 70},
         xaxis={"visible": False},
@@ -110,35 +110,35 @@ def create_probability_plot_figure(
         if probability == 50 or lower <= tick <= upper
     ]
 
-    column_label = str(column) or "Value"
+    column_label = str(column) or "数值"
     figure = go.Figure()
     figure.add_trace(
         go.Scattergl(
-            name="Probability Points",
+            name="概率点",
             x=ordered_values,
             y=theoretical_quantiles,
             mode="markers",
             marker={"color": "#176b87", "size": 7},
             customdata=probabilities,
             hovertemplate=(
-                "Value: %{x}<br>"
-                "Cumulative Probability (%): %{customdata:.3f}%<extra></extra>"
+                "数值：%{x}<br>"
+                "累积概率：%{customdata:.3f}%<extra></extra>"
             ),
         )
     )
     figure.add_trace(
         go.Scatter(
-            name="Normal Fit",
+            name="正态拟合",
             x=fit_x,
             y=fit_y,
             mode="lines",
             line={"color": "#b42318", "width": 2},
-            hovertemplate="Normal Fit<extra></extra>",
+            hovertemplate="正态拟合<extra></extra>",
         )
     )
     figure.update_layout(
         template="plotly_white",
-        title=f"Probability Plot - {column_label}",
+        title=f"概率图 - {column_label}",
         height=600,
         margin={"l": 80, "r": 30, "t": 55, "b": 70},
         hovermode="closest",
@@ -146,7 +146,7 @@ def create_probability_plot_figure(
     )
     figure.update_xaxes(title_text=column_label)
     figure.update_yaxes(
-        title_text="Cumulative Probability (%)",
+        title_text="累积概率（%）",
         tickmode="array",
         tickvals=[tick for _, tick in visible_ticks],
         ticktext=[f"{probability:g}%" for probability, _ in visible_ticks],

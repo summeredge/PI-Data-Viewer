@@ -30,6 +30,34 @@ UnicodeEncodeError: 'gbk' codec can't encode character
 
 ---
 
+## [ERR-20260908-001] 项目环境未安装 Ruff
+
+**Priority**: low
+**Status**: pending
+**Area**: tools
+
+### 摘要
+尝试运行 Ruff 静态检查时，已验证的项目解释器中没有安装 Ruff。
+
+### 错误信息
+```text
+C:\Users\shaoy\Documents\PythonEnvs\pi-data-viewer\Scripts\python.exe: No module named ruff
+```
+
+### 上下文
+- 在 PI Data Viewer 完成界面中文化后运行补充静态检查。
+- 项目 `requirements.txt` 未声明 Ruff，因此未擅自安装新依赖。
+- pytest、py_compile、界面文案审计和 git diff --check 均可继续执行。
+
+### 建议修复
+仅在项目正式采用 Ruff 时将其加入开发依赖；否则不要把 Ruff 当作必需验证项。
+
+### 元数据
+- Reproducible: yes
+- See Also: none
+
+---
+
 ## [ERR-20260904-001] PowerShell 变量赋值调用语法错误
 
 **Priority**: low

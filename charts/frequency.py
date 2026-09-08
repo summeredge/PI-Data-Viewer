@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 
 NO_SELECTION_MESSAGE = "请至少选择一个变量"
-SINGLE_VARIABLE_MESSAGE = "Frequency Analysis 仅支持单变量，请只选择一个变量"
+SINGLE_VARIABLE_MESSAGE = "频谱分析仅支持单变量，请只选择一个变量"
 
 
 def _message_figure(message: str) -> go.Figure:
@@ -23,7 +23,7 @@ def _message_figure(message: str) -> go.Figure:
     )
     figure.update_layout(
         template="plotly_white",
-        title="Frequency Analysis",
+        title="频谱分析",
         height=600,
         margin={"l": 70, "r": 30, "t": 55, "b": 70},
         xaxis={"visible": False},
@@ -77,37 +77,37 @@ def create_frequency_figure(
     figure = go.Figure()
     figure.add_trace(
         go.Scattergl(
-            name="FFT Spectrum",
+            name="FFT 频谱",
             x=frequencies,
             y=amplitudes,
             mode="lines",
             line={"color": "#1769b0", "width": 1.2},
             customdata=periods,
             hovertemplate=(
-                "Frequency: %{x:.6g} cycles/hour<br>"
-                "Period: %{customdata:.6g} h<br>"
-                "Amplitude: %{y:.6g}<extra></extra>"
+                "频率：%{x:.6g} 次/小时<br>"
+                "周期：%{customdata:.6g} 小时<br>"
+                "振幅：%{y:.6g}<extra></extra>"
             ),
         )
     )
     figure.add_trace(
         go.Scattergl(
-            name="Dominant Peak",
+            name="主峰",
             x=[dominant_frequency],
             y=[dominant_amplitude],
             mode="markers",
             marker={"color": "#b42318", "size": 10},
             hovertemplate=(
-                "Frequency: %{x:.6g} cycles/hour<br>"
-                f"Period: {1.0 / dominant_frequency:.6g} h<br>"
-                "Amplitude: %{y:.6g}<extra></extra>"
+                "频率：%{x:.6g} 次/小时<br>"
+                f"周期：{1.0 / dominant_frequency:.6g} 小时<br>"
+                "振幅：%{y:.6g}<extra></extra>"
             ),
         )
     )
     figure.add_annotation(
         text=(
-            f"Dominant: {dominant_frequency:.2f} cycles/hour"
-            f"<br>Period: {1.0 / dominant_frequency:.2f} h"
+            f"主频：{dominant_frequency:.2f} 次/小时"
+            f"<br>周期：{1.0 / dominant_frequency:.2f} 小时"
         ),
         x=dominant_frequency,
         y=dominant_amplitude,
@@ -120,12 +120,12 @@ def create_frequency_figure(
     )
     figure.update_layout(
         template="plotly_white",
-        title=f"Frequency Analysis - {selected_column}",
+        title=f"频谱分析 - {selected_column}",
         height=600,
         margin={"l": 75, "r": 30, "t": 75, "b": 70},
         hovermode="closest",
         showlegend=True,
     )
-    figure.update_xaxes(title_text="Frequency (cycles/hour)", rangemode="tozero")
-    figure.update_yaxes(title_text="Amplitude", rangemode="tozero")
+    figure.update_xaxes(title_text="频率（次/小时）", rangemode="tozero")
+    figure.update_yaxes(title_text="振幅", rangemode="tozero")
     return figure

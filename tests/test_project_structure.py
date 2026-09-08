@@ -72,7 +72,7 @@ def test_module_imports():
 def test_dash_app_imports():
     from app import app
 
-    assert app.title == "PI Data Viewer"
+    assert app.title == "PI 数据查看器"
     assert app.layout is not None
 
 

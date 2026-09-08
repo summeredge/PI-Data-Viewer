@@ -37,13 +37,13 @@ def test_probability_plot_tab_reuses_the_shared_variable_selector():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Box Plot",
-        "Probability Plot",
-        "Capability Analysis",
-        "Control Chart",
-        "Frequency Analysis",
+        "趋势图",
+        "散点矩阵",
+        "箱线图",
+        "概率图",
+        "能力分析",
+        "控制图",
+        "频谱分析",
     ]
     probability_tab = tabs.children[3]
     component_ids = {
@@ -73,10 +73,10 @@ def test_probability_plot_uses_scipy_quantiles_and_swapped_fit_line():
     np.testing.assert_allclose(points.y, expected_quantiles)
     np.testing.assert_allclose(fit.y, (np.asarray(fit.x) - intercept) / slope)
     assert list(points.x) == sorted(points.x)
-    assert figure.layout.yaxis.title.text == "Cumulative Probability (%)"
+    assert figure.layout.yaxis.title.text == "累积概率（%）"
     assert "50%" in figure.layout.yaxis.ticktext
-    assert "Value" in points.hovertemplate
-    assert "Cumulative Probability (%)" in points.hovertemplate
+    assert "数值" in points.hovertemplate
+    assert "累积概率" in points.hovertemplate
 
 
 def test_probability_plot_filters_non_numeric_values_without_mutating_frame():

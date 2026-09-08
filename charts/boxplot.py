@@ -26,7 +26,7 @@ def _message_figure(message: str) -> go.Figure:
     )
     figure.update_layout(
         template="plotly_white",
-        title="Box Plot",
+        title="箱线图",
         height=600,
         margin={"l": 60, "r": 30, "t": 55, "b": 60},
         xaxis={"visible": False},
@@ -99,7 +99,7 @@ def create_boxplot_figure(
 
     figure.update_layout(
         template="plotly_white",
-        title="Box Plot",
+        title="箱线图",
         height=600,
         margin={"l": 60, "r": 30, "t": 55, "b": 110},
         showlegend=False,

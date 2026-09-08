@@ -125,7 +125,7 @@ def create_scatter_figure(
                     y=display[y_column],
                     customdata=customdata,
                     mode="markers",
-                    name=f"{y_column} vs {x_column}",
+                    name=f"{y_column} 对 {x_column}",
                     marker={"size": 6, "opacity": 0.75},
                     hovertemplate=(
                         f"时间: %{{customdata}}<br>"
@@ -142,7 +142,7 @@ def create_scatter_figure(
 
     figure.update_layout(
         template="plotly_white",
-        title="XY 散点矩阵",
+        title="散点矩阵",
         autosize=True,
         hovermode="closest",
         showlegend=False,

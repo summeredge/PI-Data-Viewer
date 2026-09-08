@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from scipy.stats import norm
 
 
-SINGLE_VARIABLE_MESSAGE = "Capability Analysis 仅支持单变量，请只选择一个变量"
+SINGLE_VARIABLE_MESSAGE = "能力分析仅支持单变量，请只选择一个变量"
 NO_SELECTION_MESSAGE = "请至少选择一个变量"
 NO_RESULT_MESSAGE = "无法生成能力分析"
 
@@ -26,7 +26,7 @@ def _message_figure(message: str) -> go.Figure:
     )
     figure.update_layout(
         template="plotly_white",
-        title="Normal Capability Analysis",
+        title="正态能力分析",
         height=600,
         margin={"l": 70, "r": 30, "t": 55, "b": 70},
         xaxis={"visible": False},
@@ -96,17 +96,17 @@ def create_capability_figure(
     within_density = norm.pdf(x_values, loc=mean, scale=within_sigma)
     overall_density = norm.pdf(x_values, loc=mean, scale=overall_sigma)
     curve_max = max(float(within_density.max()), float(overall_density.max()), 1e-12)
-    column_label = str(selected_columns[0]) or "Value"
+    column_label = str(selected_columns[0]) or "数值"
 
     figure = go.Figure()
     figure.add_trace(
         go.Histogram(
             x=values,
             histnorm="probability density",
-            name="Histogram",
+            name="直方图",
             marker_color="#8ecae6",
             opacity=0.7,
-            hovertemplate="Value: %{x}<br>Density: %{y}<extra></extra>",
+            hovertemplate="数值：%{x}<br>密度：%{y}<extra></extra>",
         )
     )
     figure.add_trace(
@@ -114,9 +114,9 @@ def create_capability_figure(
             x=x_values,
             y=within_density,
             mode="lines",
-            name="Within Normal Curve",
+            name="组内正态曲线",
             line={"color": "#b42318", "width": 2},
-            hovertemplate="Within Normal Curve<extra></extra>",
+            hovertemplate="组内正态曲线<extra></extra>",
         )
     )
     figure.add_trace(
@@ -124,12 +124,12 @@ def create_capability_figure(
             x=x_values,
             y=overall_density,
             mode="lines",
-            name="Overall Normal Curve",
+            name="整体正态曲线",
             line={"color": "#176b87", "width": 2, "dash": "dash"},
-            hovertemplate="Overall Normal Curve<extra></extra>",
+            hovertemplate="整体正态曲线<extra></extra>",
         )
     )
-    for name, limit in (("LSL", lsl), ("USL", usl)):
+    for name, limit in (("规格下限（LSL）", lsl), ("规格上限（USL）", usl)):
         if limit is not None:
             figure.add_trace(
                 go.Scatter(
@@ -144,7 +144,7 @@ def create_capability_figure(
 
     figure.update_layout(
         template="plotly_white",
-        title=f"Normal Capability Analysis - {column_label}",
+        title=f"正态能力分析 - {column_label}",
         height=600,
         barmode="overlay",
         hovermode="x unified",
@@ -152,5 +152,5 @@ def create_capability_figure(
         showlegend=True,
     )
     figure.update_xaxes(title_text=column_label, range=[lower - padding, upper + padding])
-    figure.update_yaxes(title_text="Probability Density")
+    figure.update_yaxes(title_text="概率密度")
     return figure

@@ -8,7 +8,7 @@ import pandas as pd
 
 NO_VALID_DATA_MESSAGE = "所选变量无有效数值数据"
 INSUFFICIENT_DATA_MESSAGE = "有效数值点不足，FFT 至少需要 8 个连续采样点"
-INVALID_INDEX_MESSAGE = "Frequency Analysis 只支持 DatetimeIndex"
+INVALID_INDEX_MESSAGE = "频谱分析仅支持日期时间索引"
 INVALID_TIMESTAMP_MESSAGE = "时间戳必须有效"
 DUPLICATE_TIMESTAMP_MESSAGE = "时间戳不能重复"
 NON_INCREASING_TIMESTAMP_MESSAGE = "时间戳必须严格递增"

@@ -3,6 +3,7 @@
 <!-- SCHEMA: {"ts":"ISO-8601","action":"add|promote|extract|resolve","type":"learning|error|feature","id":"entry ID","summary":"≤100字","target":"晋升目标(可选)"} -->
 
 ```jsonl
+{"ts":"2026-09-08T11:44:14+08:00","action":"add","type":"error","id":"ERR-20260908-001","summary":"项目环境未安装 Ruff，未把未声明的工具当作必需验证项"}
 {"ts":"2026-09-05T18:09:52+08:00","action":"add","type":"error","id":"ERR-20260905-001","summary":"Agent Reach Windows 入口和 GBK 编码失败，改用 UTF-8 与官方搜索回退"}
 {"ts":"2026-09-05T18:09:52+08:00","action":"add","type":"learning","id":"LRN-20260905-001","summary":"重复 Dash 区块补丁必须使用唯一组件和 callback Output 锚点"}
 {"ts":"2026-09-05T18:09:52+08:00","action":"add","type":"learning","id":"LRN-20260905-002","summary":"Minitab I-MR 默认 Test 1，I 图支持 1-8，MR 图仅支持 1-4"}

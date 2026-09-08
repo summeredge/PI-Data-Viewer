@@ -102,7 +102,7 @@ def test_distribution_figure_handles_empty_constant_and_curve_cases():
 
 
 def test_parse_tags_rejects_more_than_eight_tags():
-    with pytest.raises(ValueError, match="Tag数量不能超过8个"):
+    with pytest.raises(ValueError, match="位号数量不能超过8个"):
         viewer.parse_tags("\n".join(f"TAG_{index}" for index in range(9)))
 
 

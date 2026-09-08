@@ -51,13 +51,13 @@ def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Box Plot",
-        "Probability Plot",
-        "Capability Analysis",
-        "Control Chart",
-        "Frequency Analysis",
+        "趋势图",
+        "散点矩阵",
+        "箱线图",
+        "概率图",
+        "能力分析",
+        "控制图",
+        "频谱分析",
     ]
     assert not any(
         getattr(component, "className", None) == "section-title"

@@ -164,7 +164,7 @@ def test_read_pi_data_rejects_invalid_json(monkeypatch, tmp_path):
     try:
         pi_reader.read_pi_data(["TAG_A"], datetime(2024, 1, 1), datetime(2024, 1, 1, 0, 1))
     except ValueError as error:
-        assert str(error) == "PIReader returned invalid JSON"
+        assert str(error) == "PIReader 返回的 JSON 无效"
     else:
         raise AssertionError("invalid PIReader JSON was accepted")
 
@@ -177,7 +177,7 @@ def test_read_pi_data_rejects_unsupported_interval(monkeypatch, tmp_path):
     monkeypatch.setenv("PI_CONFIG", str(config_path))
     monkeypatch.setenv("PI_READER_EXE", str(executable))
 
-    with pytest.raises(ValueError, match="interval must be one of"):
+    with pytest.raises(ValueError, match="采样间隔必须是以下选项之一"):
         pi_reader.read_pi_data(
             ["TAG_A"],
             datetime(2024, 1, 1),

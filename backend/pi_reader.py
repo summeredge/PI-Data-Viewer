@@ -24,11 +24,11 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
 
     normalized_tags = normalize_tags(tags)
     if interval not in INTERVAL_OPTIONS:
-        raise ValueError(f"interval must be one of: {', '.join(INTERVAL_OPTIONS)}")
-    start = _format_time(start_time, "start_time")
-    end = _format_time(end_time, "end_time")
+        raise ValueError(f"采样间隔必须是以下选项之一：{', '.join(INTERVAL_OPTIONS)}")
+    start = _format_time(start_time, "开始时间")
+    end = _format_time(end_time, "结束时间")
     if not start.startswith("*") and not end.startswith("*") and end <= start:
-        raise ValueError("end_time must be later than start_time")
+        raise ValueError("结束时间必须晚于开始时间")
 
     config_path = _config_path()
     executable = _executable_path(config_path)
@@ -60,7 +60,7 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
-            "PIReader 查询超时，请缩短时间范围或检查 PI Server 连接"
+            "PIReader 查询超时，请缩短时间范围或检查 PI 服务器连接"
         ) from exc
 
     if result.returncode != 0:
@@ -68,39 +68,39 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
             part.strip() for part in (result.stdout, result.stderr) if part and part.strip()
         )
         raise RuntimeError(
-            "PIReader failed to return data" + (f": {details[-4000:]}" if details else "")
+            "PIReader 未返回数据" + (f"：{details[-4000:]}" if details else "")
         )
 
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise ValueError("PIReader returned invalid JSON") from exc
+        raise ValueError("PIReader 返回的 JSON 无效") from exc
     return _read_reader_json(payload)
 
 
 def _normalize_tags(tags) -> list[str]:
     if isinstance(tags, (str, bytes)):
-        raise TypeError("tags must be an iterable of tag names")
+        raise TypeError("位号必须是可迭代集合")
 
     normalized: list[str] = []
     seen: set[str] = set()
     for tag in tags:
         if not isinstance(tag, str):
-            raise TypeError("each tag must be a string")
+            raise TypeError("每个位号必须是字符串")
         tag = tag.strip()
         key = tag.casefold()
         if tag and not tag.startswith("#") and key not in seen:
             normalized.append(tag)
             seen.add(key)
     if not normalized:
-        raise ValueError("tags must contain at least one tag name")
+        raise ValueError("请至少提供一个位号")
     return normalized
 
 
 def normalize_tags(tags) -> list[str]:
     normalized = _normalize_tags(tags)
     if len(normalized) > MAX_TAGS:
-        raise ValueError(f"Tag数量不能超过{MAX_TAGS}个")
+        raise ValueError(f"位号数量不能超过{MAX_TAGS}个")
     return normalized
 
 
@@ -111,14 +111,14 @@ def _format_time(value, name: str) -> str:
             if value.startswith("*"):
                 return value
         else:
-            raise ValueError(f"{name} is not a valid datetime")
+            raise ValueError(f"{name}无效")
 
     try:
         timestamp = pd.Timestamp(value)
     except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError(f"{name} is not a valid datetime") from exc
+        raise ValueError(f"{name}无效") from exc
     if pd.isna(timestamp) or timestamp.tzinfo is not None:
-        raise ValueError(f"{name} must be a timezone-naive datetime")
+        raise ValueError(f"{name}不能包含时区")
     return timestamp.to_pydatetime().strftime(_TIME_FORMAT)
 
 
@@ -127,7 +127,7 @@ def _config_path() -> Path:
     path = Path(configured).expanduser() if configured else Path.cwd() / "config.txt"
     if not path.is_file():
         raise FileNotFoundError(
-            f"PI config not found: {path}. Set {_CONFIG_ENV} to the existing config.txt."
+            f"找不到 PI 配置文件：{path}。请将 {_CONFIG_ENV} 指向现有的 config.txt。"
         )
     return path.resolve()
 
@@ -137,25 +137,25 @@ def _executable_path(config_path: Path) -> Path:
     path = Path(configured).expanduser() if configured else config_path.with_name(_PI_READER_EXE)
     if not path.is_file():
         raise FileNotFoundError(
-            f"PIReader executable not found: {path}. Set {_EXE_ENV} to PIReader.exe."
+            f"找不到 PIReader 程序：{path}。请将 {_EXE_ENV} 指向 PIReader.exe。"
         )
     return path.resolve()
 
 
 def _read_reader_json(payload) -> pd.DataFrame:
     if not isinstance(payload, dict):
-        raise ValueError("PIReader JSON must be an object")
+        raise ValueError("PIReader JSON 必须是对象")
 
     columns = payload.get("columns")
     data = payload.get("data")
     if not isinstance(columns, list) or not columns or columns[0] != "Timestamp":
-        raise ValueError("PIReader JSON is missing the Timestamp column")
+        raise ValueError("PIReader JSON 缺少 Timestamp 列")
     if not all(isinstance(column, str) for column in columns):
-        raise ValueError("PIReader JSON columns must be strings")
+        raise ValueError("PIReader JSON 列名必须是字符串")
     if not isinstance(data, list):
-        raise ValueError("PIReader JSON data must be an array")
+        raise ValueError("PIReader JSON 数据必须是数组")
     if any(not isinstance(row, list) or len(row) != len(columns) for row in data):
-        raise ValueError("PIReader JSON row width does not match columns")
+        raise ValueError("PIReader JSON 行宽与列数不一致")
 
     frame = pd.DataFrame(data, columns=columns)
     timestamps = pd.to_datetime(frame.pop("Timestamp"), errors="raise")

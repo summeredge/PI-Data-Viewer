@@ -44,13 +44,13 @@ def test_capability_tab_has_required_controls_and_shared_selector_contract():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Box Plot",
-        "Probability Plot",
-        "Capability Analysis",
-        "Control Chart",
-        "Frequency Analysis",
+        "趋势图",
+        "散点矩阵",
+        "箱线图",
+        "概率图",
+        "能力分析",
+        "控制图",
+        "频谱分析",
     ]
     capability_tab = tabs.children[4]
     component_ids = {
@@ -177,11 +177,11 @@ def test_capability_figure_has_density_histogram_distinct_curves_and_spec_lines(
     ]
     assert figure.data[0].histnorm == "probability density"
     assert {trace.name for trace in figure.data} == {
-        "Histogram",
-        "Within Normal Curve",
-        "Overall Normal Curve",
-        "LSL",
-        "USL",
+        "直方图",
+        "组内正态曲线",
+        "整体正态曲线",
+        "规格下限（LSL）",
+        "规格上限（USL）",
     }
     within = figure.data[1]
     overall = figure.data[2]
@@ -205,10 +205,10 @@ def test_capability_figure_only_draws_present_single_specification_line():
     figure = create_capability_figure(frame, ["PV1"], result)
 
     assert {trace.name for trace in figure.data} == {
-        "Histogram",
-        "Within Normal Curve",
-        "Overall Normal Curve",
-        "USL",
+        "直方图",
+        "组内正态曲线",
+        "整体正态曲线",
+        "规格上限（USL）",
     }
 
 
@@ -227,15 +227,15 @@ def test_render_capability_view_uses_shared_dataframe_and_returns_summary():
     assert selected == "PV1"
     assert status == ""
     assert [trace.name for trace in figure.data[:3]] == [
-        "Histogram",
-        "Within Normal Curve",
-        "Overall Normal Curve",
+        "直方图",
+        "组内正态曲线",
+        "整体正态曲线",
     ]
     summary_text = _text(summary)
-    assert "Process Data" in summary_text
-    assert "StDev (Within)" in summary_text
-    assert "Potential Capability" in summary_text
-    assert "Overall Capability" in summary_text
+    assert "过程数据" in summary_text
+    assert "组内标准差" in summary_text
+    assert "潜在过程能力" in summary_text
+    assert "整体过程能力" in summary_text
 
 
 def test_render_capability_view_reports_selection_and_data_errors():

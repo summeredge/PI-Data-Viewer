@@ -119,7 +119,7 @@ def test_fft_spectrum_rejects_internal_gaps_after_invalid_value_filtering():
 @pytest.mark.parametrize(
     ("series", "message"),
     [
-        (pd.Series(np.arange(8.0)), "DatetimeIndex"),
+        (pd.Series(np.arange(8.0)), "日期时间索引"),
         (
             pd.Series(
                 np.arange(8.0),
@@ -193,27 +193,27 @@ def test_frequency_figure_uses_positive_scattergl_spectrum_and_peak_marker():
     assert isinstance(figure, go.Figure)
     assert figure.data[0].type == "scattergl"
     assert all(value > 0 for trace in figure.data for value in trace.x)
-    assert figure.layout.xaxis.title.text == "Frequency (cycles/hour)"
-    assert figure.layout.yaxis.title.text == "Amplitude"
-    assert "Dominant Peak" in {trace.name for trace in figure.data}
+    assert figure.layout.xaxis.title.text == "频率（次/小时）"
+    assert figure.layout.yaxis.title.text == "振幅"
+    assert "主峰" in {trace.name for trace in figure.data}
     assert all(
         label in figure.data[0].hovertemplate
-        for label in ("Frequency", "Period", "Amplitude")
+        for label in ("频率", "周期", "振幅")
     )
-    assert any("Dominant: 1.00 cycles/hour" in annotation.text for annotation in figure.layout.annotations)
+    assert any("主频：1.00 次/小时" in annotation.text for annotation in figure.layout.annotations)
 
 
 def test_frequency_tab_is_last_and_uses_shared_selector():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Box Plot",
-        "Probability Plot",
-        "Capability Analysis",
-        "Control Chart",
-        "Frequency Analysis",
+        "趋势图",
+        "散点矩阵",
+        "箱线图",
+        "概率图",
+        "能力分析",
+        "控制图",
+        "频谱分析",
     ]
     frequency_tab = tabs.children[6]
     component_ids = {
@@ -228,7 +228,7 @@ def test_frequency_tab_is_last_and_uses_shared_selector():
         "frequency-status",
     } <= component_ids
     assert "variable-selector" not in component_ids
-    assert "Hann" in _text(frequency_tab)
+    assert "汉宁窗" in _text(frequency_tab)
     assert "不会自动插值或重采样" in _text(frequency_tab)
 
 
@@ -258,7 +258,7 @@ def test_render_frequency_view_validates_selection_and_preserves_shared_frame():
     assert isinstance(figure, go.Figure)
     assert selected == "PV1"
     assert status == ""
-    assert "Dominant Frequency" in _text(summary)
+    assert "主频" in _text(summary)
     assert viewer.get_dataframe() is frame
     pd.testing.assert_frame_equal(frame, original)
 

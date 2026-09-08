@@ -12,9 +12,7 @@ from backend.spc import calculate_imr
 
 DEFAULT_MAX_CONTROL_POINTS = 45_000
 MAX_CONTROL_POINTS = 135_000
-SINGLE_VARIABLE_MESSAGE = (
-    "I-MR Chart requires exactly one selected variable. Please select one Tag."
-)
+SINGLE_VARIABLE_MESSAGE = "I-MR 控制图仅支持单变量，请只选择一个位号"
 _VALUE_COLOR = "#1769b0"
 _LIMIT_COLOR = "#b54708"
 _CENTER_COLOR = "#374151"
@@ -26,7 +24,7 @@ def _message_figure(message: str) -> go.Figure:
         rows=2,
         cols=1,
         shared_xaxes=True,
-        subplot_titles=("Individual Chart", "Moving Range Chart"),
+        subplot_titles=("单值图", "移动极差图"),
     )
     figure.add_annotation(
         text=message,
@@ -103,7 +101,9 @@ def _add_limit_trace(
             mode="lines",
             name=name,
             line={
-                "color": _CENTER_COLOR if name in {"CL", "MR CL"} else _LIMIT_COLOR,
+                "color": _CENTER_COLOR
+                if name in {"中心线（CL）", "移动极差中心线（MR CL）"}
+                else _LIMIT_COLOR,
                 "dash": dash,
                 "width": 1.5,
             },
@@ -117,7 +117,7 @@ def _add_limit_trace(
 def _set_layout(figure: go.Figure) -> None:
     figure.update_layout(
         template="plotly_white",
-        title="I-MR Chart",
+        title="I-MR 控制图",
         height=760,
         hovermode="x unified",
         margin={"l": 65, "r": 30, "t": 70, "b": 85},
@@ -136,15 +136,15 @@ def _set_layout(figure: go.Figure) -> None:
         col=1,
     )
     figure.update_xaxes(
-        title_text="Time",
+        title_text="时间",
         type="date",
         tickformat="%Y-%m-%d\n%H:%M:%S",
         row=2,
         col=1,
     )
-    figure.update_yaxes(title_text="Value", fixedrange=True, row=1, col=1)
+    figure.update_yaxes(title_text="数值", fixedrange=True, row=1, col=1)
     figure.update_yaxes(
-        title_text="Moving Range", fixedrange=True, row=2, col=1
+        title_text="移动极差", fixedrange=True, row=2, col=1
     )
 
 
@@ -163,7 +163,7 @@ def _add_signal_trace(
         [test for test, failed in test_results.items() if failed.iloc[position]]
         for position in positions
     ]
-    labels = [", ".join(f"Test {test}" for test in tests) for tests in failed_tests]
+    labels = ["、".join(f"检验 {test}" for test in tests) for tests in failed_tests]
     display_numbers = [", ".join(map(str, tests)) for tests in failed_tests]
     figure.add_trace(
         go.Scattergl(
@@ -228,7 +228,7 @@ def create_control_chart(
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.12,
-        subplot_titles=("Individual Chart", "Moving Range Chart"),
+        subplot_titles=("单值图", "移动极差图"),
     )
     hovertemplate = "%{x|%Y-%m-%d %H:%M:%S}<br>值: %{y}<extra>%{fullData.name}</extra>"
     figure.add_trace(
@@ -257,7 +257,7 @@ def create_control_chart(
         figure,
         display_values.index,
         result["individual_cl"],
-        "CL",
+        "中心线（CL）",
         1,
         "dash",
     )
@@ -265,7 +265,7 @@ def create_control_chart(
         figure,
         display_values.index,
         result["individual_ucl"],
-        "UCL",
+        "上控制限（UCL）",
         1,
         "dot",
     )
@@ -273,7 +273,7 @@ def create_control_chart(
         figure,
         display_values.index,
         result["individual_lcl"],
-        "LCL",
+        "下控制限（LCL）",
         1,
         "dot",
     )
@@ -283,7 +283,7 @@ def create_control_chart(
             x=display_moving_range.index,
             y=display_moving_range,
             mode="lines+markers",
-            name="Moving Range",
+            name="移动极差",
             line={"color": "#6d28d9", "width": 1.2},
             marker={"size": 4},
             hovertemplate=hovertemplate,
@@ -300,12 +300,19 @@ def create_control_chart(
         "MR异常点",
         2,
     )
-    _add_limit_trace(figure, display_moving_range.index, result["mr_cl"], "MR CL", 2, "dash")
+    _add_limit_trace(
+        figure,
+        display_moving_range.index,
+        result["mr_cl"],
+        "移动极差中心线（MR CL）",
+        2,
+        "dash",
+    )
     _add_limit_trace(
         figure,
         display_moving_range.index,
         result["mr_ucl"],
-        "MR UCL",
+        "移动极差上控制限（MR UCL）",
         2,
         "dot",
     )
@@ -313,7 +320,7 @@ def create_control_chart(
         figure,
         display_moving_range.index,
         result["mr_lcl"],
-        "MR LCL",
+        "移动极差下控制限（MR LCL）",
         2,
         "dot",
     )

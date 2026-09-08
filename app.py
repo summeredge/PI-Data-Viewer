@@ -13,7 +13,7 @@ from pages.viewer import layout, register_callbacks
 _SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
 
 app = Dash(__name__)
-app.title = "PI Data Viewer"
+app.title = "PI 数据查看器"
 app.layout = layout
 register_callbacks(app)
 

@@ -79,14 +79,14 @@ _FILE_UPLOAD_STYLE = {
 }
 _TREND_CONTROL_STYLE = {"width": "100%", "height": "32px"}
 _CONTROL_CHART_TEST_OPTIONS = [
-    {"label": "Test 1：单点超过 3σ 控制限（Minitab 默认）", "value": 1},
-    {"label": "Test 2：连续 9 点位于中心线同一侧", "value": 2},
-    {"label": "Test 3：连续 6 点持续上升或下降", "value": 3},
-    {"label": "Test 4：连续 14 点交替升降", "value": 4},
-    {"label": "Test 5：3 点中有 2 点超过同侧 2σ", "value": 5},
-    {"label": "Test 6：5 点中有 4 点超过同侧 1σ", "value": 6},
-    {"label": "Test 7：连续 15 点位于中心线 1σ 内", "value": 7},
-    {"label": "Test 8：连续 8 点位于中心线 1σ 外", "value": 8},
+    {"label": "检验 1：单点超过 3σ 控制限（Minitab 默认）", "value": 1},
+    {"label": "检验 2：连续 9 点位于中心线同一侧", "value": 2},
+    {"label": "检验 3：连续 6 点持续上升或下降", "value": 3},
+    {"label": "检验 4：连续 14 点交替升降", "value": 4},
+    {"label": "检验 5：3 点中有 2 点超过同侧 2σ", "value": 5},
+    {"label": "检验 6：5 点中有 4 点超过同侧 1σ", "value": 6},
+    {"label": "检验 7：连续 15 点位于中心线 1σ 内", "value": 7},
+    {"label": "检验 8：连续 8 点位于中心线 1σ 外", "value": 8},
 ]
 _UPLOAD_CLIENTSIDE_FUNCTION = """
 async function(n_clicks) {
@@ -126,7 +126,7 @@ async function(n_clicks) {
 
 def parse_tags(value: str) -> list[str]:
     if not isinstance(value, str):
-        raise ValueError("请输入至少一个Tag")
+        raise ValueError("请输入至少一个位号")
     return normalize_tags(value.replace(",", "\n").splitlines())
 
 
@@ -182,32 +182,32 @@ def _capability_summary(result) -> html.Div:
 
     sections = (
         (
-            "Process Data",
+            "过程数据",
             (
-                ("N", str(result.get("sample_size", "—"))),
-                ("Mean", _format_capability_value(result.get("mean"))),
-                ("StDev (Within)", _format_capability_value(result.get("within_sigma"))),
-                ("StDev (Overall)", _format_capability_value(result.get("overall_sigma"))),
-                ("LSL", _format_capability_value(result.get("lsl"))),
-                ("USL", _format_capability_value(result.get("usl"))),
+                ("样本数", str(result.get("sample_size", "—"))),
+                ("均值", _format_capability_value(result.get("mean"))),
+                ("组内标准差", _format_capability_value(result.get("within_sigma"))),
+                ("整体标准差", _format_capability_value(result.get("overall_sigma"))),
+                ("规格下限（LSL）", _format_capability_value(result.get("lsl"))),
+                ("规格上限（USL）", _format_capability_value(result.get("usl"))),
             ),
         ),
         (
-            "Potential Capability",
+            "潜在过程能力",
             (
-                ("Cp", _format_capability_value(result.get("cp"))),
-                ("Cpk", _format_capability_value(result.get("cpk"))),
-                ("CPL", _format_capability_value(result.get("cpl"))),
-                ("CPU", _format_capability_value(result.get("cpu"))),
+                ("潜在能力（Cp）", _format_capability_value(result.get("cp"))),
+                ("修正能力（Cpk）", _format_capability_value(result.get("cpk"))),
+                ("下侧能力（CPL）", _format_capability_value(result.get("cpl"))),
+                ("上侧能力（CPU）", _format_capability_value(result.get("cpu"))),
             ),
         ),
         (
-            "Overall Capability",
+            "整体过程能力",
             (
-                ("Pp", _format_capability_value(result.get("pp"))),
-                ("Ppk", _format_capability_value(result.get("ppk"))),
-                ("PPL", _format_capability_value(result.get("ppl"))),
-                ("PPU", _format_capability_value(result.get("ppu"))),
+                ("整体性能（Pp）", _format_capability_value(result.get("pp"))),
+                ("修正性能（Ppk）", _format_capability_value(result.get("ppk"))),
+                ("下侧性能（PPL）", _format_capability_value(result.get("ppl"))),
+                ("上侧性能（PPU）", _format_capability_value(result.get("ppu"))),
             ),
         ),
     )
@@ -254,10 +254,10 @@ def _format_sampling_interval(seconds) -> str:
     if not math.isfinite(seconds):
         return "—"
     if math.isclose(seconds / 3600, round(seconds / 3600), rel_tol=0, abs_tol=1e-9):
-        return f"{seconds / 3600:g} h"
+        return f"{seconds / 3600:g} 小时"
     if math.isclose(seconds / 60, round(seconds / 60), rel_tol=0, abs_tol=1e-9):
-        return f"{seconds / 60:g} min"
-    return f"{seconds:.6g} s"
+        return f"{seconds / 60:g} 分钟"
+    return f"{seconds:.6g} 秒"
 
 
 def _empty_frequency_summary():
@@ -268,33 +268,33 @@ def _frequency_summary(result) -> html.Div:
     if not isinstance(result, dict):
         return _empty_frequency_summary()
     rows = (
-        ("N", str(result.get("sample_size", "—"))),
+        ("样本数", str(result.get("sample_size", "—"))),
         (
-            "Sampling Interval",
+            "采样间隔",
             _format_sampling_interval(result.get("sampling_interval_seconds")),
         ),
-        ("Duration", _format_frequency_value(result.get("duration_hours"), " h")),
+        ("时长", _format_frequency_value(result.get("duration_hours"), " 小时")),
         (
-            "Nyquist Frequency",
-            _format_frequency_value(result.get("nyquist_cph"), " cycles/hour"),
+            "奈奎斯特频率",
+            _format_frequency_value(result.get("nyquist_cph"), " 次/小时"),
         ),
         (
-            "Frequency Resolution",
+            "频率分辨率",
             _format_frequency_value(
-                result.get("frequency_resolution_cph"), " cycles/hour"
+                result.get("frequency_resolution_cph"), " 次/小时"
             ),
         ),
         (
-            "Dominant Frequency",
+            "主频",
             _format_frequency_value(
-                result.get("dominant_frequency_cph"), " cycles/hour"
+                result.get("dominant_frequency_cph"), " 次/小时"
             ),
         ),
         (
-            "Dominant Period",
-            _format_frequency_value(result.get("dominant_period_hours"), " h"),
+            "主周期",
+            _format_frequency_value(result.get("dominant_period_hours"), " 小时"),
         ),
-        ("Dominant Amplitude", _format_frequency_value(result.get("dominant_amplitude"))),
+        ("主振幅", _format_frequency_value(result.get("dominant_amplitude"))),
     )
     return html.Div(
         [
@@ -743,7 +743,7 @@ def update_data_state(
         return _viewer_state(options, "请至少选择一个变量", True), []
 
     if triggered_id == "query-button" and source != _PI_SOURCE:
-        return _viewer_state([], "请切换到 PI Server 模式", False), []
+        return _viewer_state([], "请切换到 PI 服务器模式", False), []
     if triggered_id == "upload-result" and source != _FILE_SOURCE:
         return _viewer_state([], "请切换到本地文件模式", False), []
     if triggered_id not in {"query-button", "upload-result"}:
@@ -1143,8 +1143,8 @@ layout = html.Div(
         dcc.Store(id="viewer-state"),
         html.Header(
             [
-                html.Div("HISTORICAL DATA VIEWER", className="eyebrow"),
-                html.H1("PI Data Viewer"),
+                html.Div("历史数据查看器", className="eyebrow"),
+                html.H1("PI 数据查看器"),
                 html.P(
                     "读取 PI 历史数据或本地文件，先查看摘要，再生成趋势与散点图。",
                     className="page-description",
@@ -1156,12 +1156,12 @@ layout = html.Div(
             [
                 html.Aside(
                     [
-                        html.H2("Tag Explorer", className="panel-title"),
+                        html.H2("位号浏览器", className="panel-title"),
                         html.Label("数据来源", className="field-label-text"),
                         dcc.RadioItems(
                             id="data-source",
                             options=[
-                                {"label": "PI Server", "value": _PI_SOURCE},
+                                {"label": "PI 服务器", "value": _PI_SOURCE},
                                 {"label": "本地文件", "value": _FILE_SOURCE},
                             ],
                             value=_PI_SOURCE,
@@ -1174,7 +1174,7 @@ layout = html.Div(
                                 html.Label(
                                     [
                                         html.Span(
-                                            f"PI Tag（每行一个，最多{MAX_TAGS}个）",
+                                            f"PI 位号（每行一个，最多{MAX_TAGS}个）",
                                             className="field-label-copy",
                                         ),
                                         dcc.Textarea(
@@ -1220,7 +1220,10 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="interval",
                                     options=[
-                                        {"label": value, "value": value}
+                                        {
+                                            "label": f"{value[:-1]} {'分钟' if value.endswith('m') else '小时'}",
+                                            "value": value,
+                                        }
                                         for value in INTERVAL_OPTIONS
                                     ],
                                     value=INTERVAL_OPTIONS[0],
@@ -1296,7 +1299,7 @@ layout = html.Div(
                             content_className="viewer-tabs-content",
                             children=[
                                 dcc.Tab(
-                                    label="Trend",
+                                    label="趋势图",
                                     value="trend-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
@@ -1454,7 +1457,7 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="XY Scatter",
+                                    label="散点矩阵",
                                     value="scatter-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
@@ -1576,7 +1579,7 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="Box Plot",
+                                    label="箱线图",
                                     value="boxplot-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
@@ -1646,7 +1649,7 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="Probability Plot",
+                                    label="概率图",
                                     value="probability-plot-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
@@ -1693,20 +1696,20 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="Capability Analysis",
+                                    label="能力分析",
                                     value="capability-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
                                     children=[
                                         html.P(
-                                            "Normal Capability Analysis 假设过程处于稳定状态且数据近似正态分布。可使用 Probability Plot 检查分布，并结合 Control Chart 判断过程稳定性。",
+                                            "正态能力分析假设过程处于稳定状态且数据近似正态分布。可用概率图检查分布，并结合控制图判断过程稳定性。",
                                             className="section-help",
                                         ),
                                         html.Div(
                                             [
                                                 html.Label(
                                                     [
-                                                        html.Span("LSL", className="field-label-copy"),
+                                                        html.Span("规格下限（LSL）", className="field-label-copy"),
                                                         dcc.Input(
                                                             id="capability-lsl",
                                                             type="number",
@@ -1719,7 +1722,7 @@ layout = html.Div(
                                                 ),
                                                 html.Label(
                                                     [
-                                                        html.Span("USL", className="field-label-copy"),
+                                                        html.Span("规格上限（USL）", className="field-label-copy"),
                                                         dcc.Input(
                                                             id="capability-usl",
                                                             type="number",
@@ -1777,7 +1780,7 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="Control Chart",
+                                    label="控制图",
                                     value="control-chart-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
@@ -1810,7 +1813,7 @@ layout = html.Div(
                                             className="field-label control-chart-tests",
                                         ),
                                         html.P(
-                                            "Minitab 默认只启用 Test 1；I 图支持 Test 1–8，MR 图仅应用 Test 1–4。",
+                                            "Minitab 默认仅启用检验 1；I 图支持检验 1–8，MR 图仅使用检验 1–4。",
                                             className="section-help control-chart-test-help",
                                         ),
                                         html.Div(
@@ -1845,13 +1848,13 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
-                                    label="Frequency Analysis",
+                                    label="频谱分析",
                                     value="frequency-analysis-tab",
                                     className="viewer-tab",
                                     selected_className="viewer-tab-selected",
                                     children=[
                                         html.P(
-                                            "FFT 用于识别等间隔工业时序数据中的周期性成分。分析前自动去除均值并应用 Hann 窗。FFT 要求连续且等间隔采样；本工具不会自动插值或重采样数据。",
+                                            "FFT 用于识别等间隔工业时序数据中的周期成分。分析前自动去除均值并应用汉宁窗。FFT 要求连续且等间隔采样；本工具不会自动插值或重采样数据。",
                                             className="section-help",
                                         ),
                                         html.P(

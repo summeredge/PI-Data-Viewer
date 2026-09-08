@@ -24,13 +24,13 @@ def test_control_chart_tab_uses_the_shared_variable_selector():
     tabs = viewer.layout.children[2].children[1].children[0]
 
     assert [tab.label for tab in tabs.children] == [
-        "Trend",
-        "XY Scatter",
-        "Box Plot",
-        "Probability Plot",
-        "Capability Analysis",
-        "Control Chart",
-        "Frequency Analysis",
+        "趋势图",
+        "散点矩阵",
+        "箱线图",
+        "概率图",
+        "能力分析",
+        "控制图",
+        "频谱分析",
     ]
     control_tab = tabs.children[5]
     component_ids = {
@@ -128,21 +128,21 @@ def test_create_control_chart_contains_individual_and_moving_range_traces():
 
     assert isinstance(figure, go.Figure)
     assert [annotation.text for annotation in figure.layout.annotations] == [
-        "Individual Chart",
-        "Moving Range Chart",
+        "单值图",
+        "移动极差图",
     ]
     assert {trace.name for trace in figure.data} >= {
         "TAG001.PV",
-        "CL",
-        "UCL",
-        "LCL",
-        "Moving Range",
-        "MR CL",
-        "MR UCL",
-        "MR LCL",
+        "中心线（CL）",
+        "上控制限（UCL）",
+        "下控制限（LCL）",
+        "移动极差",
+        "移动极差中心线（MR CL）",
+        "移动极差上控制限（MR UCL）",
+        "移动极差下控制限（MR LCL）",
     }
-    assert figure.layout.yaxis.title.text == "Value"
-    assert figure.layout.yaxis2.title.text == "Moving Range"
+    assert figure.layout.yaxis.title.text == "数值"
+    assert figure.layout.yaxis2.title.text == "移动极差"
     assert "%{x|%Y-%m-%d %H:%M:%S}" in figure.data[0].hovertemplate
 
 
@@ -170,7 +170,7 @@ def test_control_chart_labels_selected_minitab_test_signals():
     signals = next(trace for trace in figure.data if trace.name == "异常点")
 
     assert signals.text[-1] == "2"
-    assert signals.customdata[-1] == "Test 2"
+    assert signals.customdata[-1] == "检验 2"
     assert "%{customdata}" in signals.hovertemplate
 
 
@@ -248,7 +248,7 @@ def test_control_chart_samples_display_points_after_full_calculation():
     figure = create_control_chart(frame, ["A"], max_points=100)
     value_trace = next(trace for trace in figure.data if trace.name == "A")
     moving_range_trace = next(
-        trace for trace in figure.data if trace.name == "Moving Range"
+        trace for trace in figure.data if trace.name == "移动极差"
     )
 
     assert len(value_trace.x) <= 100
