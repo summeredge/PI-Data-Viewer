@@ -83,6 +83,7 @@ namespace PIReader.Tests
                 var config = ReaderProtocol.ReadConfig(configPath);
                 ReaderProtocol.ValidateConfig(config);
                 Assert(config["Server"] == "PI-SERVER", "config value was not parsed");
+                Assert(ReaderProtocol.GetBlockDays(config) == 3, "BlockDays was not parsed");
 
                 var tagsPath = Path.Combine(root, "tags.txt");
                 var tagContent = "\uFEFFTAG_A\nTAG_A\n# comment\n\nTAG_B\n";

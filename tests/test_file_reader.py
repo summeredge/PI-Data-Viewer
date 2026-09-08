@@ -238,10 +238,6 @@ def test_multipart_csv_upload_uses_temp_path_and_one_shared_frame(monkeypatch):
     assert len(stored) == 1
     assert get_dataframe() is stored[0]
 
-    figure, records, status = viewer.update_selected_view(["S_consumption_6h"])
-    assert [trace.name for trace in figure.data] == ["S_consumption_6h"]
-    assert records[0]["Tag"] == "S_consumption_6h"
-    assert status == ""
     assert len(read_paths) == 1
     assert len(stored) == 1
 
@@ -323,7 +319,7 @@ def test_pi_query_passes_selected_interval_to_reader(monkeypatch):
 
     monkeypatch.setattr(viewer, "read_pi_data", fake_read)
 
-    viewer.update_viewer(
+    viewer._load_viewer(
         1,
         "TAG_A",
         "2024-01-01 00:00:00",
@@ -423,9 +419,7 @@ def test_graphics_modules_do_not_read_from_pi():
             for name in (
                 "trend",
                 "scatter",
-                "histogram",
                 "boxplot",
-                "heatmap",
                 "control_chart",
             )
         ],

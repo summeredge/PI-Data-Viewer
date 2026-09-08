@@ -119,6 +119,15 @@ def test_pi_reader_program_supports_stdin_and_file_tags():
     assert "Console.OutputEncoding = new UTF8Encoding(false);" in source
 
 
+def test_pi_reader_shares_time_range_and_applies_block_days():
+    source = (Path(__file__).parents[1] / "PIReader" / "Program.cs").read_text(encoding="utf-8")
+
+    assert "reader.ResolveTimeRange(options.StartTime, options.EndTime, out startTime, out endTime);" in source
+    assert "samplesByTag[tag] = reader.Read(tag, startTime, endTime);" in source
+    assert "blockStart.AddDays(_blockDays)" in source
+    assert "ReaderProtocol.GetBlockDays(config)" in source
+
+
 def test_read_pi_data_preserves_columns_for_empty_json(monkeypatch, tmp_path):
     config_path = tmp_path / "config.txt"
     config_path.write_text("shared PIExport-format config", encoding="utf-8")

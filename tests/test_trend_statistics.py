@@ -106,31 +106,6 @@ def test_parse_tags_rejects_more_than_eight_tags():
         viewer.parse_tags("\n".join(f"TAG_{index}" for index in range(9)))
 
 
-def test_update_viewer_stores_read_data_and_builds_statistics(monkeypatch):
-    frame = pd.DataFrame(
-        {"TAG_A": [1.0, 2.0]},
-        index=pd.date_range("2024-01-01", periods=2, freq="min"),
-    )
-    monkeypatch.setattr(viewer, "read_pi_data", lambda *args: frame)
-
-    figure, records, status = viewer.update_viewer(
-        1,
-        "TAG_A",
-        "2024-01-01 00:00:00",
-        "2024-01-01 00:02:00",
-    )
-
-    assert len(figure.data) == 1
-    assert records[0]["Tag"] == "TAG_A"
-    assert records[0]["count"] == 2
-    assert records[0]["mean"] == 1.5
-    assert records[0]["std"] == pytest.approx(0.7071067811865476)
-    assert records[0]["min"] == 1.0
-    assert records[0]["max"] == 2.0
-    assert status == ""
-    assert viewer.get_dataframe() is frame
-
-
 def test_variable_options_default_to_all_and_limit_display_to_eight():
     frame = pd.DataFrame(
         {f"TAG_{index}": [float(index)] for index in range(9)},
@@ -148,21 +123,7 @@ def test_variable_options_default_to_all_and_limit_display_to_eight():
     assert limited_options[8]["disabled"] is True
 
 
-def test_selected_view_updates_trend_and_statistics_without_reading_again():
-    frame = pd.DataFrame(
-        {"A": [1.0, 2.0], "B": [10.0, 20.0], "C": [100.0, 200.0]},
-        index=pd.date_range("2024-01-01", periods=2, freq="min"),
-    )
-    viewer.store_dataframe(frame)
-
-    figure, records, status = viewer.update_selected_view(["A", "C"])
-
-    assert [trace.name for trace in figure.data] == ["A", "C"]
-    assert [record["Tag"] for record in records] == ["A", "C"]
-    assert status == ""
-
-
-def test_render_viewer_waits_for_explicit_show_click_and_limits_points(monkeypatch):
+def test_render_trend_view_waits_for_explicit_show_click_and_limits_points(monkeypatch):
     frame = pd.DataFrame(
         {"A": range(150), "B": range(150, 300)},
         index=pd.date_range("2024-01-01", periods=150, freq="min"),
@@ -198,17 +159,12 @@ def test_render_trend_uses_full_filtered_frame_for_statistics():
         index=pd.date_range("2024-01-01", periods=150, freq="min"),
     )
 
-    figure, records, cards, _ = viewer._render_trend_frame(
+    figure, cards, _ = viewer._render_trend_frame(
         frame, ["A"], max_points=100
     )
 
     expected = calculate_series_summary(frame["A"])
     assert len(figure.data[0].x) == 100
-    assert records[0]["count"] == expected["count"] == 150
-    assert records[0]["mean"] == expected["mean"]
-    assert records[0]["std"] == pytest.approx(np.std(frame["A"], ddof=1))
-    assert records[0]["min"] == expected["min"]
-    assert records[0]["max"] == expected["max"]
     rows = {
         row.children[0].children: row.children[1].children
         for row in cards[0].children[1].children
@@ -224,7 +180,7 @@ def test_render_trend_statistics_use_filtered_full_frame_not_original_frame():
         index=pd.date_range("2024-01-01", periods=200, freq="min"),
     )
 
-    figure, records, cards, _ = viewer._render_trend_frame(
+    figure, cards, _ = viewer._render_trend_frame(
         frame,
         ["A"],
         start_time="2024-01-01T00:30:00",
@@ -235,8 +191,6 @@ def test_render_trend_statistics_use_filtered_full_frame_not_original_frame():
     filtered = frame.iloc[30:170]
     expected = calculate_series_summary(filtered["A"])
     assert len(figure.data[0].x) == 100
-    assert records[0]["count"] == expected["count"] == 140
-    assert records[0]["mean"] == expected["mean"]
     rows = {
         row.children[0].children: row.children[1].children
         for row in cards[0].children[1].children
@@ -244,6 +198,22 @@ def test_render_trend_statistics_use_filtered_full_frame_not_original_frame():
     assert rows["有效点数/占比"] == "140 / 100.0%"
     assert rows["最小值"] == viewer._format_stat_value(expected["min"])
     assert rows["最大值"] == viewer._format_stat_value(expected["max"])
+
+
+def test_trend_sampling_keeps_bucket_extrema_and_endpoints():
+    values = np.zeros(1000)
+    values[217] = 999
+    frame = pd.DataFrame(
+        {"A": values},
+        index=pd.date_range("2024-01-01", periods=len(values), freq="min"),
+    )
+
+    figure, _, _ = viewer._render_trend_frame(frame, ["A"], max_points=100)
+
+    assert len(figure.data[0].x) == 100
+    assert max(figure.data[0].y) == 999
+    assert figure.data[0].x[0] == frame.index[0]
+    assert figure.data[0].x[-1] == frame.index[-1]
 
 
 def test_trend_time_controls_follow_loaded_frame():

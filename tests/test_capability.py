@@ -276,4 +276,5 @@ def test_capability_callback_uses_shared_selector_and_specification_inputs():
         "variable-selector",
         "capability-lsl",
         "capability-usl",
+        "viewer-tabs",
     ]

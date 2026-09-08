@@ -326,6 +326,3 @@ def create_control_chart(
     )
     _set_layout(figure)
     return figure
-
-
-create_control_chart_figure = create_control_chart

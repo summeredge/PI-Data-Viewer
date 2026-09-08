@@ -159,4 +159,5 @@ def test_probability_plot_callback_uses_shared_state_and_selector():
     assert [item["id"] for item in callback["inputs"]] == [
         "viewer-state",
         "variable-selector",
+        "viewer-tabs",
     ]

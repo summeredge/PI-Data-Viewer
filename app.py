@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -55,4 +56,4 @@ def upload_file():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8050, debug=False)
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", "8050")), debug=False)

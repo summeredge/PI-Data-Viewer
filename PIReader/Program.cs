@@ -124,6 +124,22 @@ namespace PIReader
             {
                 throw new FormatException("PI config requires non-empty Server and Interval.");
             }
+
+            GetBlockDays(config);
+        }
+
+        public static int GetBlockDays(IDictionary<string, string> config)
+        {
+            string value;
+            int blockDays;
+            if (!config.TryGetValue("BlockDays", out value) ||
+                !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out blockDays) ||
+                blockDays <= 0)
+            {
+                throw new FormatException("PI config BlockDays must be a positive integer.");
+            }
+
+            return blockDays;
         }
 
         public static List<string> ReadTags(string path)
@@ -258,12 +274,14 @@ namespace PIReader
         private readonly PISDKClass _sdk;
         private readonly Server _server;
         private readonly string _interval;
+        private readonly int _blockDays;
 
-        public PiSdkReader(IDictionary<string, string> config, string interval)
+        public PiSdkReader(IDictionary<string, string> config, string interval, int blockDays)
         {
             _sdk = new PISDKClass();
             _server = _sdk.Servers[config["Server"]];
             _interval = interval;
+            _blockDays = blockDays;
 
             var user = config["User"];
             var password = config["Password"];
@@ -273,10 +291,23 @@ namespace PIReader
             _server.Open(connection);
         }
 
-        public List<PiSample> Read(string tag, string startTimeText, string endTimeText)
+        public void ResolveTimeRange(
+            string startTimeText,
+            string endTimeText,
+            out DateTime startTime,
+            out DateTime endTime)
         {
-            var startTime = TimeExpressionParser.Parse(startTimeText, GetCurrentServerTime);
-            var endTime = TimeExpressionParser.Parse(endTimeText, GetCurrentServerTime);
+            var currentTime = GetCurrentServerTime();
+            startTime = TimeExpressionParser.Parse(startTimeText, () => currentTime);
+            endTime = TimeExpressionParser.Parse(endTimeText, () => currentTime);
+            if (endTime <= startTime)
+            {
+                throw new ArgumentException("End time must be later than start time.");
+            }
+        }
+
+        public List<PiSample> Read(string tag, DateTime startTime, DateTime endTime)
+        {
             if (endTime <= startTime)
             {
                 throw new ArgumentException("End time must be later than start time.");
@@ -284,15 +315,39 @@ namespace PIReader
 
             PIPoint point = _server.PIPoints[tag];
             IPIData2 data = (IPIData2)point.Data;
-            PIValues values = data.InterpolatedValues2(
-                startTime,
-                endTime,
-                _interval);
-
             var samples = new List<PiSample>();
-            foreach (PIValue value in values)
+            var blockStart = startTime;
+            while (blockStart < endTime)
             {
-                samples.Add(new PiSample(FormatTimestamp(value), ReaderProtocol.NormalizeValue(value.Value)));
+                DateTime blockEnd;
+                try
+                {
+                    blockEnd = blockStart.AddDays(_blockDays);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    blockEnd = endTime;
+                }
+
+                if (blockEnd > endTime)
+                {
+                    blockEnd = endTime;
+                }
+
+                PIValues values = data.InterpolatedValues2(
+                    blockStart,
+                    blockEnd,
+                    _interval);
+                foreach (PIValue value in values)
+                {
+                    var timestamp = FormatTimestamp(value);
+                    if (samples.Count == 0 || samples[samples.Count - 1].Timestamp != timestamp)
+                    {
+                        samples.Add(new PiSample(timestamp, ReaderProtocol.NormalizeValue(value.Value)));
+                    }
+                }
+
+                blockStart = blockEnd;
             }
 
             return samples;
@@ -340,13 +395,17 @@ namespace PIReader
                 var config = ReaderProtocol.ReadConfig(options.ConfigPath);
                 ReaderProtocol.ValidateConfig(config);
                 var tags = ReaderProtocol.ReadTags(options.TagsPath);
+                var blockDays = ReaderProtocol.GetBlockDays(config);
                 var samplesByTag = new Dictionary<string, List<PiSample>>(StringComparer.OrdinalIgnoreCase);
 
-                using (var reader = new PiSdkReader(config, options.Interval))
+                using (var reader = new PiSdkReader(config, options.Interval, blockDays))
                 {
+                    DateTime startTime;
+                    DateTime endTime;
+                    reader.ResolveTimeRange(options.StartTime, options.EndTime, out startTime, out endTime);
                     foreach (var tag in tags)
                     {
-                        samplesByTag[tag] = reader.Read(tag, options.StartTime, options.EndTime);
+                        samplesByTag[tag] = reader.Read(tag, startTime, endTime);
                     }
                 }
 

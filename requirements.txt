@@ -3,6 +3,4 @@ plotly
 pandas
 numpy
 scipy
-pyyaml
-pytest
 openpyxl

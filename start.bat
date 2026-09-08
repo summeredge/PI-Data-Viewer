@@ -36,14 +36,14 @@ if not exist "%PYTHON%" goto :venv_failed
 if not exist "requirements.txt" goto :requirements_missing
 
 echo Checking Python dependencies...
-"%PYTHON%" -c "import dash, pandas, numpy, plotly, openpyxl" >nul 2>&1
+"%PYTHON%" -c "import dash, pandas, numpy, scipy, plotly, openpyxl" >nul 2>&1
 if not errorlevel 1 goto :check_pi_reader
 
 echo Installing Python dependencies...
 "%PYTHON%" -m pip install -r "requirements.txt"
 if errorlevel 1 goto :dependencies_failed
 
-"%PYTHON%" -c "import dash, pandas, numpy, plotly, openpyxl" >nul 2>&1
+"%PYTHON%" -c "import dash, pandas, numpy, scipy, plotly, openpyxl" >nul 2>&1
 if errorlevel 1 goto :dependencies_failed
 
 :check_pi_reader

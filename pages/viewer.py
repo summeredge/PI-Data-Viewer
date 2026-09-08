@@ -4,21 +4,22 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html
+from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
 from backend.capability import calculate_normal_capability
 from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.frequency import calculate_fft_spectrum
 from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
-from backend.statistics import calculate_series_summary, calculate_statistics
+from backend.statistics import calculate_series_summary
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
     MAX_SCATTER_VARIABLES,
     calculate_scatter_dimensions,
     create_scatter_figure,
-    prepare_scatter_frame,
 )
 from charts.boxplot import create_boxplot_figure
 from charts.capability import (
@@ -361,6 +362,39 @@ def _resolve_max_plot_points(value, _series_count: int = 1) -> int:
     return min(_MAX_PLOT_POINTS, max(_MIN_PLOT_POINTS, requested))
 
 
+def _sample_trend_positions(frame: pd.DataFrame, selected_columns, max_points: int) -> list[int]:
+    if len(frame) <= max_points:
+        return list(range(len(frame)))
+
+    max_points = max(2, int(max_points))
+    columns = list(selected_columns)
+    bucket_count = max(1, (max_points - 2) // (2 * max(1, len(columns))))
+    positions = {0, len(frame) - 1}
+    numeric = frame.loc[:, columns].apply(pd.to_numeric, errors="coerce")
+    boundaries = np.linspace(0, len(frame), bucket_count + 1, dtype=int)
+
+    for start, end in zip(boundaries[:-1], boundaries[1:]):
+        if start >= end:
+            continue
+        bucket = numeric.iloc[start:end]
+        for column in columns:
+            values = bucket[column].to_numpy(dtype=float)
+            finite = np.isfinite(values)
+            if not finite.any():
+                continue
+            valid_positions = np.flatnonzero(finite)
+            finite_values = values[finite]
+            positions.add(start + int(valid_positions[np.argmin(finite_values)]))
+            positions.add(start + int(valid_positions[np.argmax(finite_values)]))
+
+    if len(positions) < max_points:
+        for position in np.linspace(0, len(frame) - 1, max_points, dtype=int):
+            positions.add(int(position))
+            if len(positions) >= max_points:
+                break
+    return sorted(positions)[:max_points]
+
+
 def _prepare_trend_frame(
     frame: pd.DataFrame,
     selected_columns,
@@ -391,10 +425,7 @@ def _prepare_trend_frame(
     effective_max_points = _resolve_max_plot_points(max_points, len(selected))
     display = filtered
     if len(display) > effective_max_points:
-        positions = [
-            int(index * (len(display) - 1) / (effective_max_points - 1))
-            for index in range(effective_max_points)
-        ]
+        positions = _sample_trend_positions(display, selected, effective_max_points)
         display = display.iloc[positions]
     return selected, filtered, display, effective_max_points
 
@@ -414,7 +445,6 @@ def _render_trend_frame(
         end_time,
         max_points,
     )
-    statistics = calculate_statistics(full_frame.loc[:, selected])
     requested_max_points = (
         _DEFAULT_MAX_PLOT_POINTS if max_points in (None, "") else int(max_points)
     )
@@ -425,40 +455,10 @@ def _render_trend_frame(
     )
     return (
         create_trend_figure(display_frame, selected, axis_mode),
-        _statistics_records(statistics),
         _statistics_cards(full_frame, selected),
         f"趋势图已生成，原始 {len(full_frame)} 点，显示 {len(display_frame)} 点，"
         f"{max_points_status}。",
     )
-
-
-def _render_frame(
-    frame: pd.DataFrame, selected_columns: list, axis_mode: str = "shared"
-) -> tuple:
-    if not selected_columns:
-        return _empty_figure(), [], []
-    selected_frame = frame.loc[:, selected_columns]
-    statistics = calculate_statistics(selected_frame)
-    return (
-        create_trend_figure(frame, selected_columns, axis_mode),
-        _statistics_records(statistics),
-        _statistics_cards(frame, selected_columns),
-    )
-
-
-def _statistics_records(statistics: pd.DataFrame) -> list[dict]:
-    records = []
-    for tag, row in statistics.iterrows():
-        record = {"Tag": str(tag)}
-        for column, value in row.items():
-            if pd.isna(value):
-                record[column] = None
-            elif hasattr(value, "item"):
-                record[column] = value.item()
-            else:
-                record[column] = value
-        records.append(record)
-    return records
 
 
 def _format_stat_value(value) -> str:
@@ -624,33 +624,6 @@ def _load_viewer(
     return status, options, selected, True
 
 
-def update_viewer(
-    n_clicks,
-    tag_value,
-    start_time,
-    end_time,
-    source=_PI_SOURCE,
-    upload_result=None,
-    selected_columns=None,
-    interval="1m",
-):
-    status, _, selected, ready = _load_viewer(
-        n_clicks,
-        tag_value,
-        start_time,
-        end_time,
-        source,
-        upload_result,
-        selected_columns,
-        interval,
-    )
-    current = get_dataframe()
-    if not ready or current is None:
-        return _empty_figure(), [], status
-    figure, records, _ = _render_frame(current, selected)
-    return figure, records, status
-
-
 def _viewer_state(options, status, ready):
     return {
         "options": options,
@@ -658,26 +631,6 @@ def _viewer_state(options, status, ready):
         "ready": ready,
         "revision": _next_revision(),
     }
-
-
-def _render_selected_view(selected_columns, viewer_state=None):
-    state = viewer_state if isinstance(viewer_state, dict) else {}
-    current = get_dataframe()
-    if current is None or current.empty or (
-        viewer_state is not None and not state.get("ready")
-    ):
-        return _empty_figure(), [], [], state.get("status", "")
-
-    _, selected, status = _variable_selection_state(current, selected_columns)
-    if not selected:
-        return _empty_figure(), [], [], "请至少选择一个变量"
-    figure, records, cards = _render_frame(current, selected)
-    return figure, records, cards, status or state.get("status", "")
-
-
-def update_selected_view(selected_columns, viewer_state=None):
-    figure, records, _, status = _render_selected_view(selected_columns, viewer_state)
-    return figure, records, status
 
 
 def update_variable_options(viewer_state, selected_columns):
@@ -762,16 +715,6 @@ def update_data_state(
     return _viewer_state(options, status, ready), selected
 
 
-def render_viewer(viewer_state, selected_columns):
-    state = viewer_state if isinstance(viewer_state, dict) else {}
-    figure, _, cards, status = _render_selected_view(selected_columns, viewer_state)
-    if selected_columns and len(selected_columns) > _MAX_SELECTED_COLUMNS:
-        status = f"最多选择{_MAX_SELECTED_COLUMNS}个变量，已保留前{_MAX_SELECTED_COLUMNS}个变量"
-    elif not selected_columns and state.get("ready"):
-        status = "请至少选择一个变量"
-    return figure, cards, status
-
-
 def render_trend_view(
     viewer_state,
     show_clicks=0,
@@ -790,7 +733,7 @@ def render_trend_view(
     if current is None:
         return _empty_figure(), [], "尚未加载数据"
     try:
-        figure, _, cards, status = _render_trend_frame(
+        figure, cards, status = _render_trend_frame(
             current,
             selected_columns,
             axis_mode,
@@ -815,13 +758,8 @@ def _render_scatter_frame(
     y_columns,
     max_points=DEFAULT_MAX_SCATTER_POINTS,
 ):
-    x_selected, y_selected, _, display = prepare_scatter_frame(
-        frame, x_columns, y_columns, max_points
-    )
     return (
-        create_scatter_figure(
-            display, x_selected, y_selected, max_points=len(display)
-        ),
+        create_scatter_figure(frame, x_columns, y_columns, max_points),
         "",
     )
 
@@ -860,9 +798,6 @@ def render_scatter_view(
 def _boxplot_frame_style(figure) -> dict:
     """每个箱体固定为子图列宽的 1/8 = 1/8 页面宽度；空位号始终 100% 容纳提示。"""
 
-    count = len(figure.data)
-    if not count:
-        return {"width": "100%"}
     return {"width": "100%"}
 
 
@@ -870,7 +805,10 @@ def render_boxplot_view(
     viewer_state,
     selected_columns=None,
     axis_mode="independent",
+    tab_value="boxplot-tab",
 ):
+    if tab_value != "boxplot-tab":
+        raise PreventUpdate
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         figure = _empty_boxplot_figure()
@@ -902,7 +840,14 @@ def render_boxplot_view(
     return figure, ", ".join(map(str, selected)), status, frame_style
 
 
-def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
+def render_control_chart_view(
+    viewer_state,
+    selected_columns=None,
+    tests=None,
+    tab_value="control-chart-tab",
+):
+    if tab_value != "control-chart-tab":
+        raise PreventUpdate
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
@@ -938,7 +883,13 @@ def render_control_chart_view(viewer_state, selected_columns=None, tests=None):
     return figure, selected_text, "" if figure.data else "所选变量无有效数值数据"
 
 
-def render_frequency_view(viewer_state, selected_columns=None):
+def render_frequency_view(
+    viewer_state,
+    selected_columns=None,
+    tab_value="frequency-analysis-tab",
+):
+    if tab_value != "frequency-analysis-tab":
+        raise PreventUpdate
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
@@ -977,7 +928,13 @@ def render_frequency_view(viewer_state, selected_columns=None):
     return figure, _frequency_summary(result), selected_text, ""
 
 
-def render_probability_plot_view(viewer_state, selected_columns=None):
+def render_probability_plot_view(
+    viewer_state,
+    selected_columns=None,
+    tab_value="probability-plot-tab",
+):
+    if tab_value != "probability-plot-tab":
+        raise PreventUpdate
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
@@ -1019,7 +976,10 @@ def render_capability_view(
     selected_columns=None,
     lsl=None,
     usl=None,
+    tab_value="capability-tab",
 ):
+    if tab_value != "capability-tab":
+        raise PreventUpdate
     state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
@@ -2077,6 +2037,7 @@ def register_callbacks(app) -> None:
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
         Input("boxplot-axis-mode", "value"),
+        Input("viewer-tabs", "value"),
         prevent_initial_call=True,
     )(render_boxplot_view)
 
@@ -2086,6 +2047,7 @@ def register_callbacks(app) -> None:
         Output("probability-plot-status", "children"),
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
+        Input("viewer-tabs", "value"),
         prevent_initial_call=True,
     )(render_probability_plot_view)
 
@@ -2098,6 +2060,7 @@ def register_callbacks(app) -> None:
         Input("variable-selector", "value"),
         Input("capability-lsl", "value"),
         Input("capability-usl", "value"),
+        Input("viewer-tabs", "value"),
         prevent_initial_call=True,
     )(render_capability_view)
 
@@ -2108,6 +2071,7 @@ def register_callbacks(app) -> None:
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
         Input("control-chart-tests", "value"),
+        Input("viewer-tabs", "value"),
         prevent_initial_call=True,
     )(render_control_chart_view)
 
@@ -2118,6 +2082,7 @@ def register_callbacks(app) -> None:
         Output("frequency-status", "children"),
         Input("viewer-state", "data"),
         Input("variable-selector", "value"),
+        Input("viewer-tabs", "value"),
         prevent_initial_call=True,
     )(render_frequency_view)
 

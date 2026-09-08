@@ -52,18 +52,24 @@ PIReader 的 C# 项目和不连接 PI Server 的协议测试分别位于 `PIRead
 python -m pip install -r requirements.txt
 ```
 
+开发测试依赖：
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
 启动应用：
 
 ```bash
 python app.py
 ```
 
-浏览器访问 <http://127.0.0.1:8050>。
+使用 `start.bat` 时，浏览器访问 `config/config.yaml` 中 `app.port` 对应的地址（默认 <http://127.0.0.1:8050>）。
 
 运行测试：
 
 ```bash
-pytest
+python -m pytest
 ```
 
 ## 项目结构
@@ -78,7 +84,7 @@ PI-Data-Viewer/
 ├── charts/
 ├── layout/
 ├── pages/
-├── export/
 ├── tests/
-└── requirements.txt
+├── requirements.txt
+└── requirements-dev.txt
 ```

@@ -85,8 +85,6 @@ def create_trend_figure(
     return figure
 
 
-create_trend_chart = create_trend_figure
-
 
 def create_distribution_figure(values, color: str) -> go.Figure:
     """Create the compact histogram and fitted normal curve used by a card."""

@@ -200,6 +200,7 @@ def test_control_chart_callback_reads_the_test_selector():
         "viewer-state",
         "variable-selector",
         "control-chart-tests",
+        "viewer-tabs",
     ]
 
 

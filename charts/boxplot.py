@@ -105,6 +105,3 @@ def create_boxplot_figure(
         showlegend=False,
     )
     return figure
-
-
-create_boxplot_chart = create_boxplot_figure

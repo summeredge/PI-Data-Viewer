@@ -156,6 +156,3 @@ def create_scatter_figure(
             margin={"l": 60, "r": 30, "t": 55, "b": 60},
         )
     return figure
-
-
-create_scatter_chart = create_scatter_figure
