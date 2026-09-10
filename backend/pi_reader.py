@@ -78,8 +78,8 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
     return _read_reader_json(payload)
 
 
-def search_pi_tags(mask) -> list[str]:
-    """Return PI tag names matching a server-side wildcard mask."""
+def search_pi_tags(mask) -> dict[str, object]:
+    """Return PI tag names and truncation metadata for a server-side search."""
 
     if not isinstance(mask, str) or not mask.strip():
         raise ValueError("请输入 Tag Mask")
@@ -126,9 +126,12 @@ def search_pi_tags(mask) -> list[str]:
     tags = payload.get("tags")
     if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
         raise ValueError("PIReader 搜索 JSON 缺少有效的 tags 数组")
-    if payload.get("truncated"):
-        raise RuntimeError(payload.get("message") or "搜索结果超过限制，请缩小条件")
-    return tags
+    return {
+        "tags": tags,
+        "count": len(tags),
+        "truncated": bool(payload.get("truncated")),
+        "message": payload.get("message") or "",
+    }
 
 
 def _normalize_tags(tags) -> list[str]:

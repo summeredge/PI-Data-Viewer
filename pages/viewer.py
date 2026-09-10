@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pandas as pd
 from dash import Input, Output, State, callback_context, dcc, html, no_update
-from dash.exceptions import PreventUpdate
+from dash.exceptions import MissingCallbackContextException, PreventUpdate
 import plotly.graph_objects as go
 
 from backend.capability import calculate_normal_capability
@@ -681,9 +681,13 @@ def update_variable_options(viewer_state, selected_columns):
 
 
 def _triggered_id():
-    if not callback_context.triggered:
+    try:
+        triggered = callback_context.triggered
+    except MissingCallbackContextException:
         return None
-    return callback_context.triggered[0]["prop_id"].split(".", 1)[0]
+    if not triggered:
+        return None
+    return triggered[0]["prop_id"].split(".", 1)[0]
 
 
 def manage_tag_search(
@@ -702,13 +706,17 @@ def manage_tag_search(
         return _TAG_SEARCH_HIDDEN_STYLE, no_update, no_update, no_update, no_update
     if triggered_id == "tag-search-button":
         try:
-            tags = search_pi_tags(mask)
+            search_result = search_pi_tags(mask)
+            tags = search_result["tags"]
         except Exception as exc:
             message = str(exc) or exc.__class__.__name__
             return no_update, [], [], no_update, f"搜索失败：{message}"
 
         options = [{"label": tag, "value": tag} for tag in tags]
-        status = "未找到匹配的位号" if not tags else f"找到 {len(tags)} 个位号"
+        if search_result.get("truncated"):
+            status = "搜索结果超过显示限制，仅显示前100个位号，请缩小搜索条件"
+        else:
+            status = "未找到匹配的位号" if not tags else f"找到 {len(tags)} 个位号"
         return no_update, options, [], no_update, status
     if triggered_id == "add-tag-search-button":
         try:
@@ -874,9 +882,13 @@ def render_boxplot_view(
     axis_mode="independent",
     tab_value="boxplot-tab",
 ):
+    triggered_id = _triggered_id()
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if triggered_id == "viewer-state":
+        figure = _empty_boxplot_figure()
+        return figure, "未选择变量", state.get("status") or "尚未加载数据", _boxplot_frame_style(figure)
     if tab_value != "boxplot-tab":
         raise PreventUpdate
-    state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         figure = _empty_boxplot_figure()
         return figure, "未选择变量", state.get("status") or "尚未加载数据", _boxplot_frame_style(figure)
@@ -913,9 +925,16 @@ def render_control_chart_view(
     tests=None,
     tab_value="control-chart-tab",
 ):
+    triggered_id = _triggered_id()
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if triggered_id == "viewer-state":
+        return (
+            _empty_control_chart_figure(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
     if tab_value != "control-chart-tab":
         raise PreventUpdate
-    state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
             _empty_control_chart_figure(),
@@ -955,9 +974,17 @@ def render_frequency_view(
     selected_columns=None,
     tab_value="frequency-analysis-tab",
 ):
+    triggered_id = _triggered_id()
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if triggered_id == "viewer-state":
+        return (
+            _empty_frequency_figure(),
+            _empty_frequency_summary(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
     if tab_value != "frequency-analysis-tab":
         raise PreventUpdate
-    state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
             _empty_frequency_figure(),
@@ -1000,9 +1027,16 @@ def render_probability_plot_view(
     selected_columns=None,
     tab_value="probability-plot-tab",
 ):
+    triggered_id = _triggered_id()
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if triggered_id == "viewer-state":
+        return (
+            _empty_probability_plot_figure(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
     if tab_value != "probability-plot-tab":
         raise PreventUpdate
-    state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
             _empty_probability_plot_figure(),
@@ -1045,9 +1079,17 @@ def render_capability_view(
     usl=None,
     tab_value="capability-tab",
 ):
+    triggered_id = _triggered_id()
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    if triggered_id == "viewer-state":
+        return (
+            _empty_capability_figure(),
+            _empty_capability_summary(),
+            "未选择变量",
+            state.get("status") or "尚未加载数据",
+        )
     if tab_value != "capability-tab":
         raise PreventUpdate
-    state = viewer_state if isinstance(viewer_state, dict) else {}
     if not state.get("ready"):
         return (
             _empty_capability_figure(),

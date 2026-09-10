@@ -47,7 +47,16 @@ def test_tag_search_modal_opens_and_closes(monkeypatch):
 
 def test_tag_search_displays_results_and_supports_multi_select(monkeypatch):
     monkeypatch.setattr(viewer, "_triggered_id", lambda: "tag-search-button")
-    monkeypatch.setattr(viewer, "search_pi_tags", lambda mask: ["A.PV", "B.PV"])
+    monkeypatch.setattr(
+        viewer,
+        "search_pi_tags",
+        lambda mask: {
+            "tags": ["A.PV", "B.PV"],
+            "count": 2,
+            "truncated": False,
+            "message": "",
+        },
+    )
     searched = viewer.manage_tag_search(0, 1, 0, 0, "FIC*", [], "A.PV")
 
     assert searched[1] == [
@@ -66,7 +75,11 @@ def test_tag_search_displays_results_and_supports_multi_select(monkeypatch):
 
 def test_tag_search_handles_empty_and_failed_results(monkeypatch):
     monkeypatch.setattr(viewer, "_triggered_id", lambda: "tag-search-button")
-    monkeypatch.setattr(viewer, "search_pi_tags", lambda mask: [])
+    monkeypatch.setattr(
+        viewer,
+        "search_pi_tags",
+        lambda mask: {"tags": [], "count": 0, "truncated": False, "message": ""},
+    )
     empty = viewer.manage_tag_search(0, 1, 0, 0, "NOT_EXIST_*", [], None)
     assert empty[1] == []
     assert empty[4] == "未找到匹配的位号"
@@ -77,6 +90,29 @@ def test_tag_search_handles_empty_and_failed_results(monkeypatch):
     monkeypatch.setattr(viewer, "search_pi_tags", fail_search)
     failed = viewer.manage_tag_search(0, 2, 0, 0, "FIC*", [], None)
     assert failed[4] == "搜索失败：PI server unavailable"
+
+
+def test_tag_search_keeps_truncated_results_and_reports_display_limit(monkeypatch):
+    monkeypatch.setattr(viewer, "_triggered_id", lambda: "tag-search-button")
+    tags = [f"TAG_{index}.PV" for index in range(100)]
+    monkeypatch.setattr(
+        viewer,
+        "search_pi_tags",
+        lambda mask: {
+            "tags": tags,
+            "count": 100,
+            "truncated": True,
+            "message": "搜索结果超过限制，请缩小条件",
+        },
+    )
+
+    result = viewer.manage_tag_search(0, 1, 0, 0, "*450*", ["OLD.PV"], None)
+
+    assert result[0] is no_update
+    assert len(result[1]) == 100
+    assert result[2] == []
+    assert not result[4].startswith("搜索失败：")
+    assert result[4] == "搜索结果超过显示限制，仅显示前100个位号，请缩小搜索条件"
 
 
 def test_tag_search_respects_eight_tag_limit(monkeypatch):

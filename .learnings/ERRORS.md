@@ -1,5 +1,33 @@
 # Errors
 
+## [ERR-20260910-001] PIReader 现场搜索验证缺少当前构建与 PI SDK 引用
+
+**Priority**: low
+**Status**: pending
+**Area**: tools
+
+### 摘要
+仓库内 `PIReader.exe` 早于当前支持搜索参数的 `Program.cs`，临时编译当前源码又因本机缺少 PI SDK 公共程序集而无法完成；本次改动改用 C# 源码门禁和 Python 模拟 JSON 回归验证。
+
+### 错误信息
+```text
+PIReader: Unknown option: --search
+error CS0006: 未能找到元数据文件 C:\Program Files (x86)\PIPC\PISDK\PublicAssemblies\OSIsoft.PISDK.dll
+```
+
+### 上下文
+- 尝试用现场条件验证 `*450*` 搜索结果是否保留前 100 个。
+- `PIReader/Program.cs` 已包含 `--search` 和 `DefaultMaxResults = 100`，但现有 exe 不是该源码的当前构建。
+
+### 建议修复
+在安装 PI SDK 且能访问目标 PI Server 的机器上重新构建 `PIReader.exe`，再执行现场搜索 smoke check；缺少这些条件时继续使用源码门禁和 mock reader JSON 测试。
+
+### 元数据
+- Reproducible: yes
+- See Also: none
+
+---
+
 ## [ERR-20260905-001] Agent Reach Windows 检索入口与编码失败
 
 **Priority**: low

@@ -99,7 +99,53 @@ def test_search_pi_tags_returns_matching_names(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pi_reader.subprocess, "run", fake_run)
 
-    assert pi_reader.search_pi_tags(" FIC* ") == ["A.PV", "B.PV"]
+    assert pi_reader.search_pi_tags(" FIC* ") == {
+        "tags": ["A.PV", "B.PV"],
+        "count": 2,
+        "truncated": False,
+        "message": "",
+    }
+
+
+def test_search_pi_tags_preserves_truncated_results(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text("shared PIExport-format config", encoding="utf-8")
+    executable = tmp_path / "PIReader.exe"
+    executable.write_bytes(b"test executable")
+    monkeypatch.setenv("PI_CONFIG", str(config_path))
+    monkeypatch.setenv("PI_READER_EXE", str(executable))
+    tags = [f"TAG_{index}.PV" for index in range(100)]
+
+    monkeypatch.setattr(
+        pi_reader.subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps(
+                {
+                    "count": 100,
+                    "tags": tags,
+                    "truncated": True,
+                    "message": "搜索结果超过限制，请缩小条件",
+                }
+            ),
+            "",
+        ),
+    )
+
+    result = pi_reader.search_pi_tags("*450*")
+
+    assert result["tags"] == tags
+    assert result["count"] == 100
+    assert result["truncated"] is True
+    assert result["message"] == "搜索结果超过限制，请缩小条件"
+
+
+def test_search_pi_tags_does_not_turn_truncation_into_an_exception():
+    source = Path(pi_reader.__file__).read_text(encoding="utf-8")
+
+    assert 'if payload.get("truncated"):\n        raise RuntimeError' not in source
 
 
 def test_search_pi_tags_forwards_reader_failure(monkeypatch, tmp_path):
