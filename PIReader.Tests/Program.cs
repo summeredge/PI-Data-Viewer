@@ -15,6 +15,7 @@ namespace PIReader.Tests
             try
             {
                 TestReaderOptions();
+                TestSearchOptionsAndResponse();
                 TestTimeExpressionParser();
                 TestConfigAndTagsParsing();
                 TestResponseSerialization();
@@ -67,6 +68,57 @@ namespace PIReader.Tests
                 "--interval", "1m"
             });
             Assert(stdinOptions.TagsPath == "-", "stdin tags argument was not parsed");
+        }
+
+        private static void TestSearchOptionsAndResponse()
+        {
+            var options = SearchOptions.Parse(new[] { "--search", "--mask", " FIC* " });
+            Assert(options.ConfigPath == "config.txt", "search config default was not parsed");
+            Assert(options.Mask == "FIC*", "search mask was not trimmed");
+            var explicitConfig = SearchOptions.Parse(new[] { "--config", "server.txt", "--search", "--mask", "FIC*" });
+            Assert(explicitConfig.ConfigPath == "server.txt", "search config argument was not parsed");
+            Assert(SearchOptions.IsSearch(new[] { "--config", "config.txt", "--search", "--mask", "FIC*" }), "search mode was not detected");
+
+            var called = false;
+            var normal = ReaderProtocol.SearchPoints(
+                options.Mask,
+                SearchOptions.DefaultMaxResults,
+                query =>
+                {
+                    called = true;
+                    Assert(query == "tag='FIC*'", "PI search query was not built from the mask");
+                    return new[] { "FIC421001.PV", "FIC421002.PV", "FIC421003.PV" };
+                });
+            Assert(called, "PI search provider was not called");
+            Assert((int)normal["count"] == 3, "normal search count is invalid");
+            var normalTags = AsList(normal["tags"]);
+            Assert(normalTags.Count == 3, "normal search tags are missing");
+            Assert((string)normalTags[0] == "FIC421001.PV" && (string)normalTags[2] == "FIC421003.PV", "normal search tags are invalid");
+            Assert(!normal.ContainsKey("truncated"), "normal search was incorrectly truncated");
+
+            var empty = ReaderProtocol.SearchPoints(
+                "NOT_EXIST_*",
+                SearchOptions.DefaultMaxResults,
+                query => new string[0]);
+            Assert((int)empty["count"] == 0 && AsList(empty["tags"]).Count == 0, "empty search was not returned as an empty list");
+            Assert(!empty.ContainsKey("truncated"), "empty search was incorrectly truncated");
+
+            var manyTags = new List<string>();
+            for (var index = 0; index <= SearchOptions.DefaultMaxResults; index++)
+            {
+                manyTags.Add("FIC" + index.ToString("D6") + ".PV");
+            }
+            var limited = ReaderProtocol.SearchPoints(
+                "FIC*",
+                SearchOptions.DefaultMaxResults,
+                query => manyTags);
+            Assert((int)limited["count"] == SearchOptions.DefaultMaxResults, "search result limit was not applied");
+            Assert((bool)limited["truncated"], "truncated search was not marked");
+            Assert((string)limited["message"] == "搜索结果超过限制，请缩小条件", "truncated search message is invalid");
+            Assert(AsList(limited["tags"]).Count == SearchOptions.DefaultMaxResults, "truncated search returned too many tags");
+
+            ExpectSearchArgumentException(new[] { "--search", "--mask", "" }, "must not be empty");
+            ExpectSearchArgumentException(new[] { "--search", "--mask", "*" }, "not allowed");
         }
 
         private static void TestConfigAndTagsParsing()
@@ -195,6 +247,21 @@ namespace PIReader.Tests
             }
 
             throw new InvalidOperationException("FAIL: invalid arguments were accepted");
+        }
+
+        private static void ExpectSearchArgumentException(string[] args, string expectedText)
+        {
+            try
+            {
+                SearchOptions.Parse(args);
+            }
+            catch (ArgumentException exception)
+            {
+                Assert(exception.Message.IndexOf(expectedText, StringComparison.OrdinalIgnoreCase) >= 0, "unexpected search argument error");
+                return;
+            }
+
+            throw new InvalidOperationException("FAIL: invalid search arguments were accepted");
         }
 
         private static void ExpectInvalidTimeExpression(string expression)

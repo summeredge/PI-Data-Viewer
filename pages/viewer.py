@@ -6,14 +6,20 @@ import math
 
 import numpy as np
 import pandas as pd
-from dash import Input, Output, State, callback_context, dcc, html
+from dash import Input, Output, State, callback_context, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
 from backend.capability import calculate_normal_capability
 from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.frequency import calculate_fft_spectrum
-from backend.pi_reader import INTERVAL_OPTIONS, MAX_TAGS, normalize_tags, read_pi_data
+from backend.pi_reader import (
+    INTERVAL_OPTIONS,
+    MAX_TAGS,
+    normalize_tags,
+    read_pi_data,
+    search_pi_tags,
+)
 from backend.statistics import calculate_series_summary
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
@@ -75,6 +81,8 @@ _PI_QUERY_STYLE = {
     "flexDirection": "column",
     "gap": "0.5rem",
 }
+_TAG_SEARCH_HIDDEN_STYLE = {"display": "none"}
+_TAG_SEARCH_VISIBLE_STYLE = {"display": "flex"}
 _FILE_UPLOAD_STYLE = {
     "display": "none",
 }
@@ -129,6 +137,31 @@ def parse_tags(value: str) -> list[str]:
     if not isinstance(value, str):
         raise ValueError("请输入至少一个位号")
     return normalize_tags(value.replace(",", "\n").splitlines())
+
+
+def _merge_tag_values(current_value, selected_tags) -> str:
+    if not isinstance(selected_tags, (list, tuple)) or not selected_tags:
+        raise ValueError("请先勾选位号")
+
+    current_tags = []
+    if isinstance(current_value, str) and current_value.strip():
+        try:
+            current_tags = parse_tags(current_value)
+        except ValueError as exc:
+            if "不能超过" in str(exc):
+                raise ValueError(f"最多支持{MAX_TAGS}个位号") from exc
+            raise
+
+    selected_tags = list(selected_tags)
+    if any(not isinstance(tag, str) for tag in selected_tags):
+        raise ValueError("搜索结果中的位号无效")
+    unique_count = len(
+        {tag.strip().casefold() for tag in current_tags + selected_tags if tag.strip()}
+    )
+    if unique_count > MAX_TAGS:
+        raise ValueError(f"最多支持{MAX_TAGS}个位号")
+
+    return "\n".join(normalize_tags(current_tags + selected_tags))
 
 
 def _empty_figure():
@@ -653,6 +686,40 @@ def _triggered_id():
     return callback_context.triggered[0]["prop_id"].split(".", 1)[0]
 
 
+def manage_tag_search(
+    open_clicks,
+    search_clicks,
+    add_clicks,
+    close_clicks,
+    mask,
+    selected_tags,
+    current_value,
+):
+    triggered_id = _triggered_id()
+    if triggered_id == "open-tag-search-button":
+        return _TAG_SEARCH_VISIBLE_STYLE, no_update, no_update, no_update, no_update
+    if triggered_id == "close-tag-search-button":
+        return _TAG_SEARCH_HIDDEN_STYLE, no_update, no_update, no_update, no_update
+    if triggered_id == "tag-search-button":
+        try:
+            tags = search_pi_tags(mask)
+        except Exception as exc:
+            message = str(exc) or exc.__class__.__name__
+            return no_update, [], [], no_update, f"搜索失败：{message}"
+
+        options = [{"label": tag, "value": tag} for tag in tags]
+        status = "未找到匹配的位号" if not tags else f"找到 {len(tags)} 个位号"
+        return no_update, options, [], no_update, status
+    if triggered_id == "add-tag-search-button":
+        try:
+            merged_value = _merge_tag_values(current_value, selected_tags)
+        except (TypeError, ValueError) as exc:
+            return no_update, no_update, no_update, no_update, str(exc)
+        return no_update, no_update, [], merged_value, "已添加选中位号"
+
+    raise PreventUpdate
+
+
 def update_trend_time_controls(viewer_state):
     if not isinstance(viewer_state, dict) or not viewer_state.get("ready"):
         return None, None
@@ -1145,6 +1212,13 @@ layout = html.Div(
                                         ),
                                     ],
                                     className="field-label",
+                                ),
+                                html.Button(
+                                    "搜索位号",
+                                    id="open-tag-search-button",
+                                    n_clicks=0,
+                                    type="button",
+                                    className="secondary-button",
                                 ),
                                 html.Label(
                                     [
@@ -1918,6 +1992,72 @@ layout = html.Div(
             ],
             className="app-layout",
         ),
+        html.Div(
+            html.Div(
+                [
+                    html.H2("PI 位号搜索", className="tag-search-title"),
+                    html.Label(
+                        [
+                            html.Span("搜索条件", className="field-label-copy"),
+                            dcc.Input(
+                                id="tag-search-mask",
+                                type="text",
+                                placeholder="例如 FIC*",
+                                className="text-input",
+                                style={"width": "100%"},
+                            ),
+                        ],
+                        className="field-label",
+                    ),
+                    html.Button(
+                        "搜索",
+                        id="tag-search-button",
+                        n_clicks=0,
+                        type="button",
+                        className="primary-button",
+                    ),
+                    html.Div(
+                        id="tag-search-status",
+                        className="status-message",
+                        role="status",
+                        **{"aria-live": "polite"},
+                    ),
+                    html.Span("结果", className="field-label-copy"),
+                    dcc.Checklist(
+                        id="tag-search-results",
+                        options=[],
+                        value=[],
+                        className="tag-search-results",
+                        labelStyle={"display": "block"},
+                        inputStyle={"marginRight": "0.4rem"},
+                    ),
+                    html.Div(
+                        [
+                            html.Button(
+                                "添加选中位号",
+                                id="add-tag-search-button",
+                                n_clicks=0,
+                                type="button",
+                                className="primary-button",
+                            ),
+                            html.Button(
+                                "关闭",
+                                id="close-tag-search-button",
+                                n_clicks=0,
+                                type="button",
+                                className="secondary-button",
+                            ),
+                        ],
+                        className="tag-search-actions",
+                    ),
+                ],
+                className="tag-search-dialog",
+                **{"role": "dialog", "aria-modal": "true"},
+            ),
+            id="tag-search-modal",
+            className="tag-search-modal",
+            style=_TAG_SEARCH_HIDDEN_STYLE,
+        ),
     ],
     className="page-shell",
 )
@@ -1937,6 +2077,22 @@ def register_callbacks(app) -> None:
         Input("file-upload-button", "n_clicks"),
         prevent_initial_call=True,
     )
+
+    app.callback(
+        Output("tag-search-modal", "style"),
+        Output("tag-search-results", "options"),
+        Output("tag-search-results", "value"),
+        Output("tag-input", "value"),
+        Output("tag-search-status", "children"),
+        Input("open-tag-search-button", "n_clicks"),
+        Input("tag-search-button", "n_clicks"),
+        Input("add-tag-search-button", "n_clicks"),
+        Input("close-tag-search-button", "n_clicks"),
+        State("tag-search-mask", "value"),
+        State("tag-search-results", "value"),
+        State("tag-input", "value"),
+        prevent_initial_call=True,
+    )(manage_tag_search)
 
     app.callback(
         Output("viewer-state", "data"),

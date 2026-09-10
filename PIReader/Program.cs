@@ -63,6 +63,104 @@ namespace PIReader
         }
     }
 
+    public sealed class SearchOptions
+    {
+        public const int DefaultMaxResults = 100;
+
+        public string ConfigPath { get; private set; }
+        public string Mask { get; private set; }
+
+        public static bool IsSearch(string[] args)
+        {
+            if (args == null)
+            {
+                return false;
+            }
+
+            foreach (var arg in args)
+            {
+                if (string.Equals(arg, "--search", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static SearchOptions Parse(string[] args)
+        {
+            if (args == null || args.Length == 0)
+            {
+                throw new ArgumentException("Usage: PIReader.exe [--config config.txt] --search --mask \"FIC*\"");
+            }
+
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var searchRequested = false;
+            for (var index = 0; index < args.Length;)
+            {
+                var option = args[index].ToLowerInvariant();
+                if (option == "--search")
+                {
+                    searchRequested = true;
+                    index++;
+                    continue;
+                }
+
+                if (option != "--config" && option != "--mask")
+                {
+                    throw new ArgumentException("Unknown option: " + args[index]);
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    throw new ArgumentException("Each option must have a value.");
+                }
+
+                values[option] = args[index + 1];
+                index += 2;
+            }
+
+            if (!searchRequested)
+            {
+                throw new ArgumentException("Search mode requires --search.");
+            }
+
+            string rawMask;
+            if (!values.TryGetValue("--mask", out rawMask))
+            {
+                throw new ArgumentException("Missing option: --mask");
+            }
+            if (string.IsNullOrWhiteSpace(rawMask))
+            {
+                throw new ArgumentException("Search mask must not be empty.");
+            }
+
+            var mask = rawMask.Trim();
+            if (mask == "*")
+            {
+                throw new ArgumentException("Search mask '*' is not allowed; please narrow the condition.");
+            }
+
+            return new SearchOptions
+            {
+                ConfigPath = values.ContainsKey("--config") ? Required(values, "--config") : "config.txt",
+                Mask = mask
+            };
+        }
+
+        private static string Required(IDictionary<string, string> values, string name)
+        {
+            string value;
+            if (!values.TryGetValue(name, out value) || string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Missing option: " + name);
+            }
+
+            return value;
+        }
+    }
+
     public sealed class PiSample
     {
         public PiSample(string timestamp, object value)
@@ -155,6 +253,75 @@ namespace PIReader
             }
 
             return ParseTags(File.ReadAllLines(path, new UTF8Encoding(false)));
+        }
+
+        public static string BuildSearchQuery(string mask)
+        {
+            if (string.IsNullOrWhiteSpace(mask))
+            {
+                throw new ArgumentException("Search mask must not be empty.");
+            }
+
+            var normalizedMask = mask.Trim();
+            if (normalizedMask == "*")
+            {
+                throw new ArgumentException("Search mask '*' is not allowed; please narrow the condition.");
+            }
+
+            return "tag='" + normalizedMask.Replace("'", "''") + "'";
+        }
+
+        public static Dictionary<string, object> SearchPoints(
+            string mask,
+            int maxResults,
+            Func<string, IEnumerable<string>> getPointNames)
+        {
+            if (getPointNames == null)
+            {
+                throw new ArgumentNullException("getPointNames");
+            }
+
+            return BuildSearchResponse(getPointNames(BuildSearchQuery(mask)), maxResults);
+        }
+
+        public static Dictionary<string, object> BuildSearchResponse(
+            IEnumerable<string> pointNames,
+            int maxResults)
+        {
+            if (pointNames == null)
+            {
+                throw new ArgumentNullException("pointNames");
+            }
+            if (maxResults <= 0)
+            {
+                throw new ArgumentOutOfRangeException("maxResults");
+            }
+
+            var tags = new List<string>();
+            var truncated = false;
+            foreach (var pointName in pointNames)
+            {
+                if (tags.Count >= maxResults)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                tags.Add(pointName);
+            }
+
+            var response = new Dictionary<string, object>
+            {
+                { "count", tags.Count },
+                { "tags", tags }
+            };
+            if (truncated)
+            {
+                response["truncated"] = true;
+                response["message"] = "搜索结果超过限制，请缩小条件";
+            }
+
+            return response;
         }
 
         private static List<string> ParseTags(IEnumerable<string> lines)
@@ -291,6 +458,26 @@ namespace PIReader
             _server.Open(connection);
         }
 
+        public Dictionary<string, object> Search(string mask, int maxResults)
+        {
+            return ReaderProtocol.SearchPoints(
+                mask,
+                maxResults,
+                query =>
+                {
+                    PointList points = _server.GetPoints(query);
+                    return PointNames(points);
+                });
+        }
+
+        private static IEnumerable<string> PointNames(PointList points)
+        {
+            foreach (PIPoint point in points)
+            {
+                yield return point.Name;
+            }
+        }
+
         public void ResolveTimeRange(
             string startTimeText,
             string endTimeText,
@@ -391,6 +578,11 @@ namespace PIReader
 
             try
             {
+                if (SearchOptions.IsSearch(args))
+                {
+                    return RunSearch(SearchOptions.Parse(args));
+                }
+
                 var options = ReaderOptions.Parse(args);
                 var config = ReaderProtocol.ReadConfig(options.ConfigPath);
                 ReaderProtocol.ValidateConfig(config);
@@ -418,6 +610,23 @@ namespace PIReader
                 Console.Error.WriteLine("PIReader: " + exception.Message);
                 return 1;
             }
+        }
+
+        private static int RunSearch(SearchOptions options)
+        {
+            var config = ReaderProtocol.ReadConfig(options.ConfigPath);
+            ReaderProtocol.ValidateConfig(config);
+            Dictionary<string, object> response;
+            using (var reader = new PiSdkReader(
+                config,
+                config["Interval"],
+                ReaderProtocol.GetBlockDays(config)))
+            {
+                response = reader.Search(options.Mask, SearchOptions.DefaultMaxResults);
+            }
+
+            Console.Out.Write(ReaderProtocol.Serialize(response));
+            return 0;
         }
     }
 }

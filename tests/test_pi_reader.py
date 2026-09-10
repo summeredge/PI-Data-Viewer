@@ -69,6 +69,61 @@ def test_read_pi_data_uses_pi_reader_json(monkeypatch, tmp_path):
     assert pd.isna(frame.loc[pd.Timestamp("2024-01-01 00:01:00"), "TAG_A"])
 
 
+def test_search_pi_tags_returns_matching_names(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text("shared PIExport-format config", encoding="utf-8")
+    executable = tmp_path / "PIReader.exe"
+    executable.write_bytes(b"test executable")
+    monkeypatch.setenv("PI_CONFIG", str(config_path))
+    monkeypatch.setenv("PI_READER_EXE", str(executable))
+
+    def fake_run(command, **kwargs):
+        assert command == [
+            str(executable.resolve()),
+            "--config",
+            str(config_path.resolve()),
+            "--search",
+            "--mask",
+            "FIC*",
+        ]
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "strict"
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            json.dumps({"count": 2, "tags": ["A.PV", "B.PV"]}),
+            "",
+        )
+
+    monkeypatch.setattr(pi_reader.subprocess, "run", fake_run)
+
+    assert pi_reader.search_pi_tags(" FIC* ") == ["A.PV", "B.PV"]
+
+
+def test_search_pi_tags_forwards_reader_failure(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.txt"
+    config_path.write_text("shared PIExport-format config", encoding="utf-8")
+    executable = tmp_path / "PIReader.exe"
+    executable.write_bytes(b"test executable")
+    monkeypatch.setenv("PI_CONFIG", str(config_path))
+    monkeypatch.setenv("PI_READER_EXE", str(executable))
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, "", "PI SDK unavailable")
+
+    monkeypatch.setattr(pi_reader.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="PI SDK unavailable"):
+        pi_reader.search_pi_tags("FIC*")
+
+
+def test_search_pi_tags_rejects_unbounded_mask():
+    with pytest.raises(ValueError, match=r"不能为 \*"):
+        pi_reader.search_pi_tags("*")
+
+
 def test_read_pi_data_forwards_pi_time_expressions(monkeypatch, tmp_path):
     config_path = tmp_path / "config.txt"
     config_path.write_text("shared PIExport-format config", encoding="utf-8")
@@ -117,6 +172,15 @@ def test_pi_reader_program_supports_stdin_and_file_tags():
     assert "File.ReadAllLines" in source
     assert "Console.InputEncoding = new UTF8Encoding(false);" in source
     assert "Console.OutputEncoding = new UTF8Encoding(false);" in source
+
+
+def test_pi_reader_search_uses_server_side_get_points():
+    source = (Path(__file__).parents[1] / "PIReader" / "Program.cs").read_text(encoding="utf-8")
+
+    assert "PointList points" in source
+    assert "_server.GetPoints(query)" in source
+    assert "return point.Name;" in source
+    assert 'return "tag=\'"' in source
 
 
 def test_pi_reader_shares_time_range_and_applies_block_days():

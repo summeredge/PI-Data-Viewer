@@ -78,6 +78,59 @@ def read_pi_data(tags, start_time, end_time, interval="1m") -> pd.DataFrame:
     return _read_reader_json(payload)
 
 
+def search_pi_tags(mask) -> list[str]:
+    """Return PI tag names matching a server-side wildcard mask."""
+
+    if not isinstance(mask, str) or not mask.strip():
+        raise ValueError("请输入 Tag Mask")
+    mask = mask.strip()
+    if mask == "*":
+        raise ValueError("搜索条件不能为 *，请缩小条件")
+
+    config_path = _config_path()
+    executable = _executable_path(config_path)
+    command = [
+        str(executable),
+        "--config",
+        str(config_path),
+        "--search",
+        "--mask",
+        mask,
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="strict",
+            check=False,
+            timeout=PI_READER_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("PIReader 搜索超时，请检查 PI 服务器连接") from exc
+
+    if result.returncode != 0:
+        details = "\n".join(
+            part.strip() for part in (result.stdout, result.stderr) if part and part.strip()
+        )
+        raise RuntimeError("PIReader 搜索失败" + (f"：{details[-4000:]}" if details else ""))
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("PIReader 搜索返回的 JSON 无效") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("PIReader 搜索 JSON 必须是对象")
+
+    tags = payload.get("tags")
+    if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+        raise ValueError("PIReader 搜索 JSON 缺少有效的 tags 数组")
+    if payload.get("truncated"):
+        raise RuntimeError(payload.get("message") or "搜索结果超过限制，请缩小条件")
+    return tags
+
+
 def _normalize_tags(tags) -> list[str]:
     if isinstance(tags, (str, bytes)):
         raise TypeError("位号必须是可迭代集合")
