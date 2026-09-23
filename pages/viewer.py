@@ -57,7 +57,7 @@ _MIN_PLOT_POINTS = 100
 _MAX_PLOT_POINTS = 135_000
 _view_revision = 0
 _STAT_COLORS = (
-    "#176b87",
+    "#1769b0",
     "#c2410c",
     "#6d28d9",
     "#15803d",
@@ -1215,7 +1215,7 @@ layout = html.Div(
                 html.Div("历史数据查看器", className="eyebrow"),
                 html.H1("PI 数据查看器"),
                 html.P(
-                    "读取 PI 历史数据或本地文件，先查看摘要，再生成趋势与散点图。",
+                    "读取 PI 或本地数据，生成趋势、关系、分布、能力、控制与频谱分析。",
                     className="page-description",
                 ),
             ],
@@ -1481,7 +1481,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="trend-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成趋势图…",
                                                 className="loading-message",
@@ -1615,7 +1615,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="scatter-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成散点矩阵…",
                                                 className="loading-message",
@@ -1703,7 +1703,7 @@ layout = html.Div(
                                             dcc.Loading(
                                                 id="boxplot-loading",
                                                 type="dot",
-                                                color="#176b87",
+                                                color="#1769b0",
                                                 custom_spinner=html.Div(
                                                     "正在生成箱线图…",
                                                     className="loading-message",
@@ -1750,7 +1750,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="probability-plot-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成概率图…",
                                                 className="loading-message",
@@ -1832,7 +1832,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="capability-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成能力分析…",
                                                 className="loading-message",
@@ -1902,7 +1902,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="control-chart-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成 I-MR 控制图…",
                                                 className="loading-message",
@@ -1953,7 +1953,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="frequency-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在生成频谱…",
                                                 className="loading-message",
@@ -1982,9 +1982,9 @@ layout = html.Div(
                             [
                                 html.Div(
                                     [
-                                        html.H2("运行日志", className="section-subtitle"),
+                                        html.H2("状态摘要", className="section-subtitle"),
                                         html.P(
-                                            "查询、上传和图表生成状态会显示在这里。",
+                                            "显示数据是否已加载，以及最近一次分析操作的结果。",
                                             className="section-help",
                                         ),
                                     ],
@@ -1996,7 +1996,7 @@ layout = html.Div(
                                         dcc.Loading(
                                             id="data-status-loading",
                                             type="dot",
-                                            color="#176b87",
+                                            color="#1769b0",
                                             custom_spinner=html.Div(
                                                 "正在读取数据…",
                                                 className="loading-message",
@@ -2019,7 +2019,7 @@ layout = html.Div(
                                             id="query-status",
                                             className="status-message status-message-secondary",
                                             role="status",
-                                            children="等待趋势或散点操作",
+                                            children="等待分析操作",
                                             **{"aria-live": "polite"},
                                         ),
                                     ],
@@ -2037,7 +2037,11 @@ layout = html.Div(
         html.Div(
             html.Div(
                 [
-                    html.H2("PI 位号搜索", className="tag-search-title"),
+                    html.H2(
+                        "PI 位号搜索",
+                        id="tag-search-title",
+                        className="tag-search-title",
+                    ),
                     html.Label(
                         [
                             html.Span("搜索条件", className="field-label-copy"),
@@ -2094,7 +2098,11 @@ layout = html.Div(
                     ),
                 ],
                 className="tag-search-dialog",
-                **{"role": "dialog", "aria-modal": "true"},
+                **{
+                    "role": "dialog",
+                    "aria-modal": "true",
+                    "aria-labelledby": "tag-search-title",
+                },
             ),
             id="tag-search-modal",
             className="tag-search-modal",

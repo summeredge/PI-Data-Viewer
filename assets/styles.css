@@ -46,7 +46,7 @@ body {
   margin: 0;
   background: var(--page-bg);
   color: var(--text);
-  font-family: Arial, sans-serif;
+  font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
   line-height: 1.45;
   overflow-x: hidden;
 }
@@ -139,9 +139,9 @@ textarea {
   position: sticky;
   top: 0;
   align-self: start;
-  height: calc(100vh - 56px);
-  max-height: calc(100vh - 56px);
-  overflow-y: auto;
+  height: auto;
+  max-height: none;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -764,8 +764,24 @@ textarea:disabled,
   position: absolute;
   z-index: 2;
   inset: 0;
-  margin: 12px;
+  margin: 0;
+  border-radius: inherit;
   pointer-events: none;
+}
+
+/* 空图表不应露出默认工具栏，避免“没有结果”与图表 chrome 同时出现。 */
+.dash-graph.plot-empty .modebar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Tab 内状态是局部提示，不再和全局状态栏争夺卡片层级。 */
+.viewer-tabs-content .status-message {
+  min-height: 0;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-left-width: 2px;
+  background: var(--surface-muted);
 }
 
 .trend-graph {
@@ -1032,6 +1048,12 @@ textarea:disabled,
   .trend-controls > #show-trend-button {
     min-height: 44px;
     height: auto !important;
+  }
+
+  /* Dash 的内联高度会阻止组合选择器覆盖主操作按钮。 */
+  #show-trend-button {
+    min-height: 44px !important;
+    height: 44px !important;
   }
 
   .select-control .dash-dropdown {
