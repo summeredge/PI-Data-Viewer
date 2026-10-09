@@ -44,7 +44,10 @@ def create_trend_figure(
     xaxis = {
         "title": "时间",
         "type": "date",
-        "tickformat": "%Y-%m-%d\n%H:%M:%S",
+        # 单行 + 限刻度数：此前 \n 强制两行使每个刻度仅 28px 宽，
+        # 1200 点时标签互相挤成折行噪声。完整时间由 hover 提供。
+        "tickformat": "%m-%d %H:%M",
+        "nticks": 8,
         "rangeslider": {"visible": False},
     }
     valid_index = df.index.dropna()
@@ -56,10 +59,12 @@ def create_trend_figure(
 
     y_axes = {"yaxis": {"title": "数值", "fixedrange": True}}
     if axis_mode == "independent":
-        y_axes["yaxis"]["title"] = str(columns[0]) if len(columns) else "数值"
+        # 位号名可能长达数十字符，竖排后会超出固定高度图表框被裁切；
+        # 完整位号由图例与 hover 表达，坐标轴只保留短标签。
+        y_axes["yaxis"]["title"] = "位号值"
         for index, column in enumerate(columns[1:], start=2):
             y_axes[f"yaxis{index}"] = {
-                "title": str(column) if index == 2 else None,
+                "title": None,
                 "overlaying": "y",
                 "side": "right",
                 "fixedrange": True,
@@ -75,12 +80,17 @@ def create_trend_figure(
         legend={
             "title": "位号",
             "orientation": "h",
+            # yref=container + yanchor=bottom 让图例贴着容器底边，
+            # 不随 margin.b 变化而漂移压住 X 轴标题。
+            "yref": "container",
+            "y": 0,
+            "yanchor": "bottom",
             "x": 0,
             "xanchor": "left",
-            "y": -0.18,
-            "yanchor": "top",
         },
-        margin={"l": 60, "r": 30, "t": 30, "b": 90},
+        # 8 个长位号时图例最多 5 行（约 86px），底部留 130px 足够容纳
+        # 图例且不与 X 轴标题重叠。
+        margin={"l": 60, "r": 30, "t": 30, "b": 130},
     )
     return figure
 

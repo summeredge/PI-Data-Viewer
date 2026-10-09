@@ -44,7 +44,7 @@ def test_scatter_layout_has_controls_button_and_graph():
     styles = (Path(__file__).parents[1] / "assets" / "styles.css").read_text(
         encoding="utf-8"
     )
-    assert "grid-template-columns: repeat(3, minmax(0, 230px));" in styles
+    assert "grid-template-columns: repeat(3, minmax(200px, 1fr));" in styles
 
 
 def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():

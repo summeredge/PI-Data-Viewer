@@ -68,7 +68,9 @@ _STAT_COLORS = (
 )
 _STATISTICS_GRID_STYLE = {
     "display": "grid",
-    "gridTemplateColumns": "repeat(4, minmax(0, 1fr))",
+    # 卡片内数值列固定 90px；固定 4 列在窄内容区会把数值挤到 ~42px。
+    # minmax(240px, 1fr) 让列数由可用宽度决定，空间够仍是 4 列。
+    "gridTemplateColumns": "repeat(auto-fit, minmax(240px, 1fr))",
     "gap": "10px",
     "alignItems": "start",
 }
@@ -1837,15 +1839,18 @@ layout = html.Div(
                                                 "正在生成能力分析…",
                                                 className="loading-message",
                                             ),
-                                            children=dcc.Graph(
-                                                id="capability-graph",
-                                                className="capability-graph",
-                                                figure=_empty_capability_figure(),
-                                                config={
-                                                    "displaylogo": False,
-                                                    "scrollZoom": False,
-                                                },
-                                                style={"height": "600px"},
+                                            children=html.Div(
+                                                dcc.Graph(
+                                                    id="capability-graph",
+                                                    className="capability-graph",
+                                                    figure=_empty_capability_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "600px"},
+                                                ),
+                                                className="visualization-frame capability-visualization-frame",
                                             ),
                                         ),
                                         html.Div(
@@ -1958,15 +1963,18 @@ layout = html.Div(
                                                 "正在生成频谱…",
                                                 className="loading-message",
                                             ),
-                                            children=dcc.Graph(
-                                                id="frequency-graph",
-                                                className="frequency-graph",
-                                                figure=_empty_frequency_figure(),
-                                                config={
-                                                    "displaylogo": False,
-                                                    "scrollZoom": False,
-                                                },
-                                                style={"height": "600px"},
+                                            children=html.Div(
+                                                dcc.Graph(
+                                                    id="frequency-graph",
+                                                    className="frequency-graph",
+                                                    figure=_empty_frequency_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "600px"},
+                                                ),
+                                                className="visualization-frame frequency-visualization-frame",
                                             ),
                                         ),
                                         html.Div(

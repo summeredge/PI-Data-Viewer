@@ -24,9 +24,11 @@ def test_create_trend_figure_preserves_datetime_index_and_multiple_tags():
     assert figure.layout.legend.orientation == "h"
     assert figure.layout.legend.x == 0
     assert figure.layout.legend.xanchor == "left"
-    assert figure.layout.legend.y == -0.18
-    assert figure.layout.legend.yanchor == "top"
-    assert figure.layout.margin.b == 90
+    # 图例贴容器底边，避免长位号时压住 X 轴标题
+    assert figure.layout.legend.yref == "container"
+    assert figure.layout.legend.y == 0
+    assert figure.layout.legend.yanchor == "bottom"
+    assert figure.layout.margin.b == 130
 
 
 def test_create_trend_figure_only_draws_selected_columns():
@@ -39,6 +41,30 @@ def test_create_trend_figure_only_draws_selected_columns():
 
     assert [trace.name for trace in figure.data] == ["A", "C"]
     assert list(frame.columns) == ["A", "B", "C"]
+
+
+def test_create_trend_figure_uses_short_y_title_for_independent_axes():
+    frame = pd.DataFrame(
+        {"A_VERY_LONG_TAG_NAME_THAT_WOULD_OVERFLOW_THE_AXIS": [1.0, 2.0]},
+        index=pd.date_range("2024-01-01", periods=2, freq="min"),
+    )
+
+    figure = create_trend_figure(frame, axis_mode="independent")
+
+    # 长位号竖排后超出图表框高度，改用短标签；完整位号由图例与 hover 表达
+    assert figure.layout.yaxis.title.text == "位号值"
+
+
+def test_create_trend_figure_limits_tick_density():
+    frame = pd.DataFrame(
+        {"A": range(1200)}, index=pd.date_range("2024-01-01", periods=1200, freq="min")
+    )
+
+    figure = create_trend_figure(frame)
+
+    # 旧 tickformat 带 \n 强制两行，每格仅 28px 宽，标签互相挤成折行噪声
+    assert "\n" not in figure.layout.xaxis.tickformat
+    assert figure.layout.xaxis.nticks == 8
 
 
 def test_create_trend_figure_supports_independent_y_axes():
