@@ -127,9 +127,9 @@ def test_distribution_figure_handles_empty_constant_and_curve_cases():
     assert varied.data[1].line.color == "#176b87"
 
 
-def test_parse_tags_rejects_more_than_eight_tags():
-    with pytest.raises(ValueError, match="位号数量不能超过8个"):
-        viewer.parse_tags("\n".join(f"TAG_{index}" for index in range(9)))
+def test_parse_tags_rejects_more_than_twenty_tags():
+    with pytest.raises(ValueError, match="位号数量不能超过20个"):
+        viewer.parse_tags("\n".join(f"TAG_{index}" for index in range(21)))
 
 
 def test_variable_options_default_to_all_and_limit_display_to_eight():

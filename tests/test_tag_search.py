@@ -115,10 +115,10 @@ def test_tag_search_keeps_truncated_results_and_reports_display_limit(monkeypatc
     assert result[4] == "搜索结果超过显示限制，仅显示前100个位号，请缩小搜索条件"
 
 
-def test_tag_search_respects_eight_tag_limit(monkeypatch):
+def test_tag_search_respects_twenty_tag_limit(monkeypatch):
     monkeypatch.setattr(viewer, "_triggered_id", lambda: "add-tag-search-button")
-    current = "\n".join(f"TAG{index}.PV" for index in range(8))
-    result = viewer.manage_tag_search(0, 0, 1, 0, None, ["TAG8.PV"], current)
+    current = "\n".join(f"TAG{index}.PV" for index in range(20))
+    result = viewer.manage_tag_search(0, 0, 1, 0, None, ["TAG20.PV"], current)
 
     assert result[3] is no_update
-    assert result[4] == "最多支持8个位号"
+    assert result[4] == "最多支持20个位号"

@@ -12,7 +12,7 @@ Phase 4：
 - Dash页面初始化；
 - 独立 PIReader C# 后端完成；
 - Python PI Reader 适配接口完成；
-- 支持最多 8 个 PI Tag 的时间范围查询；
+- 支持最多 20 个 PI Tag 的时间范围查询，图表同时最多展示 8 个变量；
 - 支持 CSV 和 Excel `.xlsx` 本地文件导入；
 - 支持 Plotly 多曲线趋势图和基础统计表；
 - PI Server 与本地文件都通过 `backend/dataframe_store.py` 在趋势图和统计模块之间流转。

@@ -15,6 +15,7 @@ from backend.dataframe_store import get_dataframe, store_dataframe
 from backend.frequency import calculate_fft_spectrum
 from backend.pi_reader import (
     INTERVAL_OPTIONS,
+    MAX_SELECTED_TAGS,
     MAX_TAGS,
     normalize_tags,
     read_pi_data,
@@ -51,7 +52,7 @@ from charts.trend import create_distribution_figure, create_trend_figure
 
 _PI_SOURCE = "pi"
 _FILE_SOURCE = "file"
-_MAX_SELECTED_COLUMNS = MAX_TAGS
+_MAX_SELECTED_COLUMNS = MAX_SELECTED_TAGS
 _DEFAULT_MAX_PLOT_POINTS = 45_000
 _MIN_PLOT_POINTS = 100
 _MAX_PLOT_POINTS = 135_000

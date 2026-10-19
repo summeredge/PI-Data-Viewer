@@ -7,10 +7,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from backend.pi_reader import MAX_TAGS
+from backend.pi_reader import MAX_SELECTED_TAGS
 
 
-_BOX_COLUMNS = MAX_TAGS
+_BOX_COLUMNS = MAX_SELECTED_TAGS
 
 
 def _message_figure(message: str) -> go.Figure:
