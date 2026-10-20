@@ -80,6 +80,15 @@ def create_boxplot_figure(
                 name=str(column),
                 boxpoints="outliers",
                 marker={"size": 5},
+                # 只提示统计量，不带位号（name）。
+                hovertemplate=(
+                    "最大值 (max): %{max}<br>"
+                    "上四分位 (Q3): %{q3}<br>"
+                    "中位数: %{median}<br>"
+                    "下四分位 (Q1): %{q1}<br>"
+                    "最小值 (min): %{min}"
+                    "<extra></extra>"
+                ),
             ),
             row=1,
             col=index,

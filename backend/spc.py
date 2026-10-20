@@ -166,3 +166,105 @@ def calculate_imr(series: pd.Series, tests=None) -> dict[str, object]:
             moving_range_tests, moving_range.index
         ),
     }
+
+
+def calculate_staged_imr(
+    series: pd.Series, boundaries, tests=None
+) -> list[dict[str, object]]:
+    """Split the series at `boundaries` and run calculate_imr() per stage.
+
+    A boundary starts a new stage from that timestamp onward, so every stage
+    restarts its own moving range and special-cause runs. Boundaries are
+    validated against the index exactly as bound_stages() does.
+    """
+
+    stages = []
+    for stage_number, (start, stage_series) in enumerate(
+        stage_slices(series, boundaries), start=1
+    ):
+        try:
+            result = calculate_imr(stage_series, tests=tests)
+        except ValueError as exc:
+            raise ValueError(f"阶段 {stage_number}：{exc}") from None
+        if result["moving_range"].dropna().empty:
+            raise ValueError(
+                f"阶段 {stage_number}（{_format_time(start)} 起）有效数据不足，"
+                "无法计算移动极差与控制限，请调整分界时间"
+            )
+        stage = dict(result)
+        stage["stage"] = stage_number
+        stage["start"] = start
+        stages.append(stage)
+    return stages
+
+
+def stage_slices(series: pd.Series, boundaries) -> list[tuple[pd.Timestamp, pd.Series]]:
+    """Return (first timestamp, samples) for each stage defined by boundaries."""
+
+    index = series.index
+    if not isinstance(index, pd.DatetimeIndex):
+        raise TypeError("series must use a pandas DatetimeIndex")
+    if index.empty:
+        return []
+    stamps = bound_stages(index, boundaries)
+    starts = [index[0], *stamps]
+    # 每段是 [起点, 下一段起点)：分界点本身属于新阶段。
+    bounds = [*starts, index[-1] + pd.Timedelta(1, "ns")]
+    return [
+        (start, series[(index >= start) & (index < end)])
+        for start, end in zip(starts, bounds[1:])
+    ]
+
+
+def bound_stages(index: pd.DatetimeIndex, boundaries) -> list[pd.Timestamp]:
+    """Sort, de-duplicate and validate stage boundaries for a DatetimeIndex.
+
+    Boundaries must fall strictly inside the data range. A boundary on the
+    exact last timestamp would leave the following stage without samples, so it
+    is rejected up front instead of producing a misleading stage.
+    """
+
+    if not isinstance(index, pd.DatetimeIndex):
+        raise TypeError("series must use a pandas DatetimeIndex")
+    if boundaries in (None, ""):
+        return []
+    if isinstance(boundaries, (str, bytes)) or not hasattr(boundaries, "__iter__"):
+        raise ValueError("阶段分界时间必须是时间列表")
+
+    stamps = set()
+    for value in boundaries:
+        if value in (None, ""):
+            continue
+        try:
+            stamp = pd.Timestamp(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"无法识别的分界时间：{value}") from exc
+        if stamp is pd.NaT:
+            raise ValueError(f"无法识别的分界时间：{value}")
+        stamps.add(stamp)
+    if not stamps:
+        return []
+    if index.empty:
+        raise ValueError("当前数据无时间范围，无法设置阶段")
+
+    ordered = sorted(stamps)
+    first, last = index[0], index[-1]
+    for stamp in ordered:
+        try:
+            too_early = stamp <= first
+            too_late = stamp >= last
+        except TypeError:
+            raise ValueError("分界时间与数据时间的时区不一致") from None
+        if too_early:
+            raise ValueError(
+                f"分界时间 {_format_time(stamp)} 必须晚于数据起点 {_format_time(first)}"
+            )
+        if too_late:
+            raise ValueError(
+                f"分界时间 {_format_time(stamp)} 必须早于数据终点 {_format_time(last)}"
+            )
+    return ordered
+
+
+def _format_time(value: pd.Timestamp) -> str:
+    return pd.Timestamp(value).strftime("%Y-%m-%d %H:%M:%S")

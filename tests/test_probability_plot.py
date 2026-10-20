@@ -40,12 +40,12 @@ def test_probability_plot_tab_reuses_the_shared_variable_selector():
         "趋势图",
         "散点矩阵",
         "箱线图",
+        "控制图",
         "概率图",
         "能力分析",
-        "控制图",
         "频谱分析",
     ]
-    probability_tab = tabs.children[3]
+    probability_tab = tabs.children[4]
     component_ids = {
         component.id
         for component in _components(probability_tab)

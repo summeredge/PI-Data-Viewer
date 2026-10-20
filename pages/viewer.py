@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 import pandas as pd
-from dash import Input, Output, State, callback_context, dcc, html, no_update
+from dash import ALL, Input, Output, State, callback_context, dcc, html, no_update
 from dash.exceptions import MissingCallbackContextException, PreventUpdate
 import plotly.graph_objects as go
 
@@ -21,6 +21,7 @@ from backend.pi_reader import (
     read_pi_data,
     search_pi_tags,
 )
+from backend.spc import calculate_staged_imr
 from backend.statistics import calculate_series_summary
 from charts.scatter import (
     DEFAULT_MAX_SCATTER_POINTS,
@@ -922,11 +923,234 @@ def render_boxplot_view(
     return figure, ", ".join(map(str, selected)), status, frame_style
 
 
+_STAGE_HINT = "阶段设置已修改，等待重新计算"
+_STAGE_ADD_ID = "control-chart-add-stage"
+_STAGE_ROW_INPUT = "control-chart-stage-time"
+_STAGE_ROW_DELETE = "control-chart-delete-stage"
+_STAGE_PANEL_HIDDEN_STYLE = {"display": "none"}
+_STAGE_PANEL_VISIBLE_STYLE = {"display": "flex"}
+
+
+def _stage_canonical(value) -> str:
+    """Normalize a datetime-local string to second precision, "" when invalid.
+
+    图表 clickData 的数字 x 是 Plotly 的毫秒时间戳，先转成时间再格式化。
+    """
+    if value is None or value == "":
+        return ""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        stamp = pd.Timestamp(value, unit="ms", tz="UTC").tz_localize(None)
+        return stamp.strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        return pd.Timestamp(str(value)).strftime("%Y-%m-%dT%H:%M:%S")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _stage_sort(values) -> list[str]:
+    """Deduplicate and sort pending boundaries, dropping blanks."""
+    stamps = {_stage_canonical(value) for value in values or []}
+    stamps.discard("")
+    return sorted(stamps, key=pd.Timestamp)
+
+
+def _stage_summary(stages) -> str:
+    count = len(stages or [])
+    if not count:
+        return "未启用阶段"
+    return f"{count} 个分界时间（{count + 1} 个阶段）"
+
+
+def _stage_rows(stages) -> list:
+    return [
+        html.Div(
+            [
+                dcc.Input(
+                    id={"type": _STAGE_ROW_INPUT, "index": index},
+                    type="datetime-local",
+                    step=1,
+                    value=value,
+                    className="stage-time-input",
+                    debounce=True,
+                ),
+                html.Button(
+                    "删除",
+                    id={"type": _STAGE_ROW_DELETE, "index": index},
+                    n_clicks=0,
+                    type="button",
+                    className="stage-delete-button",
+                ),
+            ],
+            className="stage-row",
+            role="group",
+            **{"aria-label": f"阶段 {index + 1} 分界时间"},
+        )
+        for index, value in enumerate(stages or [])
+    ]
+
+
+def _clicked_stage_time(click_data) -> str:
+    """Time of the clicked data point: prefer point x, fall back to the trace index."""
+    points = click_data.get("points") if isinstance(click_data, dict) else None
+    if not points:
+        return ""
+    point = points[0]
+    if point.get("x") is not None:
+        picked = _stage_canonical(point["x"])
+        if picked:
+            return picked
+
+    # 部分 hover/click 模式只给 pointNumber，用该 trace 自己的 x 数组取值。
+    number = point.get("pointNumber")
+    trace_x = (point.get("data") or {}).get("x")
+    if number is None or not isinstance(trace_x, (list, tuple)):
+        return ""
+    if number >= len(trace_x):
+        return ""
+    return _stage_canonical(trace_x[number])
+
+
+def update_control_chart_stage_panel(pending):
+    """Render the pending boundary rows (the applied list is never shown here)."""
+    return _stage_rows(_stage_sort(pending)) or [
+        html.P("尚未设置分界时间，当前为整体 I-MR 控制图。", className="stage-empty")
+    ]
+
+
+def update_control_chart_stage_summary(pending, shown=False):
+    stages = _stage_sort(pending)
+    return f"{_stage_summary(stages)} {'▲' if shown else '▼'}"
+
+
+def toggle_control_chart_stage_panel(n_clicks, click_data=None, shown=False):
+    """Toggle the panel; a chart click also opens it so the picked time is visible."""
+    triggered = _triggered_id()
+    if triggered == "control-chart-graph":
+        if not _clicked_stage_time(click_data):
+            raise PreventUpdate
+        return (
+            True,
+            _STAGE_PANEL_VISIBLE_STYLE,
+            "true",
+        )
+    if not n_clicks:
+        raise PreventUpdate
+    shown = not shown
+    return (
+        shown,
+        _STAGE_PANEL_VISIBLE_STYLE if shown else _STAGE_PANEL_HIDDEN_STYLE,
+        "true" if shown else "false",
+    )
+
+
+def edit_control_chart_stages(
+    viewer_state,
+    add_clicks,
+    delete_clicks,
+    edit_values,
+    clear_clicks,
+    click_data=None,
+    new_value=None,
+    pending=None,
+):
+    """Single owner of the pending boundary list (never the applied one).
+
+    参数顺序必须与回调 inputs 一致（clickData 是 Input），再接两个 State。
+    """
+
+    stages = _stage_sort(pending)
+    triggered = callback_context.triggered_id
+
+    if triggered == "viewer-state":
+        return [], new_value, ""
+    if triggered == "control-chart-graph":
+        picked = _clicked_stage_time(click_data)
+        if not picked:
+            return no_update, no_update, "该点没有时间信息，请点击数据点"
+        if picked in stages:
+            return no_update, no_update, f"{picked[:19].replace('T', ' ')} 已是分界时间"
+        # 只填入新增框，由“添加”按钮确认入列表。
+        return no_update, picked, "已取该点时间，点击“添加”加入分界点"
+    if triggered == _STAGE_ADD_ID and add_clicks:
+        added = _stage_canonical(new_value)
+        if not added:
+            return no_update, no_update, "请输入完整的分界时间"
+        if added in stages:
+            return no_update, "", "该分界时间已存在"
+        return _stage_sort(stages + [added]), "", ""
+    if triggered == "control-chart-clear-stages" and clear_clicks:
+        return [], new_value, ""
+    if isinstance(triggered, dict):
+        index = triggered.get("index")
+        if triggered.get("type") == _STAGE_ROW_DELETE and index is not None:
+            kept = [value for position, value in enumerate(stages) if position != index]
+            return kept, no_update, ""
+        if triggered.get("type") == _STAGE_ROW_INPUT and index is not None:
+            edited = list(stages)
+            if index >= len(edited):
+                return no_update, no_update, ""
+            # 通配输入传回整个列表，取值要按触发的行号对齐。
+            values = edit_values if isinstance(edit_values, (list, tuple)) else [edit_values]
+            raw = values[index] if index < len(values) else None
+            value = _stage_canonical(raw)
+            if value:
+                edited[index] = value
+            elif raw:
+                return no_update, no_update, "请输入完整的分界时间"
+            else:
+                del edited[index]
+            return _stage_sort(edited), no_update, ""
+    raise PreventUpdate
+
+
+def recalculate_control_chart_stages(
+    recalculate_clicks,
+    viewer_state,
+    pending=None,
+    applied=None,
+    selected_columns=None,
+    tests=None,
+):
+    """Apply the pending boundaries only after validation and a click."""
+
+    triggered = _triggered_id()
+    if triggered == "viewer-state":
+        return [], "", True
+
+    pending = _stage_sort(pending)
+    applied = _stage_sort(applied)
+    changed = pending != applied
+    if triggered != "control-chart-recalculate":
+        return no_update, _STAGE_HINT if changed else "", not changed
+
+    state = viewer_state if isinstance(viewer_state, dict) else {}
+    current = get_dataframe()
+    if not state.get("ready") or current is None:
+        return no_update, "请先加载数据再重新计算", True
+    selected = _selected_columns(current, selected_columns)
+    if len(selected) != 1:
+        return no_update, "请先选择一个变量再重新计算", not changed
+
+    try:
+        calculate_staged_imr(current[selected[0]], pending, tests=tests)
+    except (TypeError, ValueError) as exc:
+        return no_update, f"阶段设置无效：{exc}", not changed
+    if not pending:
+        return [], "已恢复整体 I-MR 控制图", True
+    return (
+        pending,
+        f"已按 {len(pending)} 个分界时间重新计算（共 {len(pending) + 1} 个阶段）",
+        True,
+    )
+
+
 def render_control_chart_view(
     viewer_state,
     selected_columns=None,
     tests=None,
     tab_value="control-chart-tab",
+    boundaries=None,
+    limit_labels=None,
 ):
     triggered_id = _triggered_id()
     state = viewer_state if isinstance(viewer_state, dict) else {}
@@ -964,6 +1188,8 @@ def render_control_chart_view(
             selected,
             max_points=DEFAULT_MAX_CONTROL_POINTS,
             tests=tests,
+            boundaries=boundaries,
+            limit_labels=bool(limit_labels),
         )
     except (TypeError, ValueError) as exc:
         return _empty_control_chart_figure(), selected_text, str(exc)
@@ -1728,6 +1954,180 @@ layout = html.Div(
                                     ],
                                 ),
                                 dcc.Tab(
+                                    label="控制图",
+                                    value="control-chart-tab",
+                                    className="viewer-tab",
+                                    selected_className="viewer-tab-selected",
+                                    children=[
+                                        html.P(
+                                            [
+                                                "当前选择变量：",
+                                                html.Span(
+                                                    "未选择变量",
+                                                    id="control-chart-selected-columns",
+                                                ),
+                                            ],
+                                            className="section-help",
+                                        ),
+                                        html.Label(
+                                            [
+                                                html.Span(
+                                                    "判异检验",
+                                                    className="field-label-copy",
+                                                ),
+                                                dcc.Dropdown(
+                                                    id="control-chart-tests",
+                                                    options=_CONTROL_CHART_TEST_OPTIONS,
+                                                    value=[1],
+                                                    multi=True,
+                                                    placeholder="不执行判异检验",
+                                                    className="select-control",
+                                                ),
+                                            ],
+                                            className="field-label control-chart-tests",
+                                        ),
+                                        html.P(
+                                            "Minitab 默认仅启用检验 1；I 图支持检验 1–8，MR 图仅使用检验 1–4。",
+                                            className="section-help control-chart-test-help",
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    [
+                                                        html.Button(
+                                                            [
+                                                                html.Span(
+                                                                    "阶段设置",
+                                                                    className="stage-caption-label",
+                                                                ),
+                                                                html.Span(
+                                                                    "未启用阶段 ▼",
+                                                                    id="control-chart-stage-summary",
+                                                                ),
+                                                            ],
+                                                            id="control-chart-stage-toggle",
+                                                            n_clicks=0,
+                                                            type="button",
+                                                            className="stage-toggle-button",
+                                                            **{
+                                                                "aria-controls": "control-chart-stage-panel",
+                                                                "aria-expanded": "false",
+                                                            },
+                                                        ),
+                                                        html.Button(
+                                                            "重新计算",
+                                                            id="control-chart-recalculate",
+                                                            n_clicks=0,
+                                                            type="button",
+                                                            className="secondary-button stage-recalculate-button",
+                                                            disabled=True,
+                                                        ),
+                                                    ],
+                                                    className="stage-toolbar",
+                                                ),
+                                                html.Div(
+                                                    [
+                                                        html.Div(
+                                                            id="control-chart-stage-rows",
+                                                            className="stage-rows",
+                                                            children=_stage_rows([]),
+                                                        ),
+                                                        html.Div(
+                                                            [
+                                                                dcc.Input(
+                                                                    id="control-chart-new-stage",
+                                                                    type="datetime-local",
+                                                                    step=1,
+                                                                    className="stage-time-input",
+                                                                    debounce=True,
+                                                                ),
+                                                                html.Button(
+                                                                    "添加",
+                                                                    id="control-chart-add-stage",
+                                                                    n_clicks=0,
+                                                                    type="button",
+                                                                    className="secondary-button",
+                                                                ),
+                                                                html.Button(
+                                                                    "清空",
+                                                                    id="control-chart-clear-stages",
+                                                                    n_clicks=0,
+                                                                    type="button",
+                                                                    className="secondary-button",
+                                                                ),
+                                                            ],
+                                                            className="stage-add-row",
+                                                        ),
+                                                        html.P(
+                                                            "也可直接点击图上任意数据点选取该点时间。分界时间需在数据时间范围内部，精确到秒；该时间及之后的样本属于新阶段。",
+                                                            className="section-help stage-help",
+                                                        ),
+                                                        html.P(
+                                                            "",
+                                                            id="control-chart-stage-note",
+                                                            className="section-help stage-note",
+                                                            **{"aria-live": "polite"},
+                                                        ),
+                                                    ],
+                                                    id="control-chart-stage-panel",
+                                                    className="stage-panel",
+                                                    style=_STAGE_PANEL_HIDDEN_STYLE,
+                                                ),
+                                            ],
+                                            className="stage-section",
+                                        ),
+                                        dcc.Checklist(
+                                            id="control-chart-stage-labels",
+                                            options=[
+                                                {
+                                                    "label": "对所有阶段显示控制限/中心线标签",
+                                                    "value": "show",
+                                                }
+                                            ],
+                                            value=["show"],
+                                            className="stage-label-toggle",
+                                        ),
+                                        dcc.Store(id="control-chart-pending-stages", data=[]),
+                                        dcc.Store(id="control-chart-applied-stages", data=[]),
+                                        dcc.Store(id="control-chart-stage-shown", data=False),
+                                        html.Div(
+                                            id="control-chart-status",
+                                            className="status-message",
+                                            role="status",
+                                            children="尚未生成控制图",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        html.P(
+                                            "",
+                                            id="control-chart-stage-message",
+                                            className="section-help stage-message",
+                                            **{"aria-live": "polite"},
+                                        ),
+                                        dcc.Loading(
+                                            id="control-chart-loading",
+                                            type="dot",
+                                            color="#1769b0",
+                                            custom_spinner=html.Div(
+                                                "正在生成 I-MR 控制图…",
+                                                className="loading-message",
+                                            ),
+                                            children=html.Div(
+                                                dcc.Graph(
+                                                    id="control-chart-graph",
+                                                    className="control-chart-graph",
+                                                    figure=_empty_control_chart_figure(),
+                                                    config={
+                                                        "displaylogo": False,
+                                                        "scrollZoom": False,
+                                                    },
+                                                    style={"height": "760px"},
+                                                ),
+                                                className="visualization-frame control-chart-visualization-frame",
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                                dcc.Tab(
                                     label="概率图",
                                     value="probability-plot-tab",
                                     className="viewer-tab",
@@ -1858,74 +2258,6 @@ layout = html.Div(
                                             id="capability-summary",
                                             className="capability-summary",
                                             children=_empty_capability_summary(),
-                                        ),
-                                    ],
-                                ),
-                                dcc.Tab(
-                                    label="控制图",
-                                    value="control-chart-tab",
-                                    className="viewer-tab",
-                                    selected_className="viewer-tab-selected",
-                                    children=[
-                                        html.P(
-                                            [
-                                                "当前选择变量：",
-                                                html.Span(
-                                                    "未选择变量",
-                                                    id="control-chart-selected-columns",
-                                                ),
-                                            ],
-                                            className="section-help",
-                                        ),
-                                        html.Label(
-                                            [
-                                                html.Span(
-                                                    "判异检验",
-                                                    className="field-label-copy",
-                                                ),
-                                                dcc.Dropdown(
-                                                    id="control-chart-tests",
-                                                    options=_CONTROL_CHART_TEST_OPTIONS,
-                                                    value=[1],
-                                                    multi=True,
-                                                    placeholder="不执行判异检验",
-                                                    className="select-control",
-                                                ),
-                                            ],
-                                            className="field-label control-chart-tests",
-                                        ),
-                                        html.P(
-                                            "Minitab 默认仅启用检验 1；I 图支持检验 1–8，MR 图仅使用检验 1–4。",
-                                            className="section-help control-chart-test-help",
-                                        ),
-                                        html.Div(
-                                            id="control-chart-status",
-                                            className="status-message",
-                                            role="status",
-                                            children="尚未生成控制图",
-                                            **{"aria-live": "polite"},
-                                        ),
-                                        dcc.Loading(
-                                            id="control-chart-loading",
-                                            type="dot",
-                                            color="#1769b0",
-                                            custom_spinner=html.Div(
-                                                "正在生成 I-MR 控制图…",
-                                                className="loading-message",
-                                            ),
-                                            children=html.Div(
-                                                dcc.Graph(
-                                                    id="control-chart-graph",
-                                                    className="control-chart-graph",
-                                                    figure=_empty_control_chart_figure(),
-                                                    config={
-                                                        "displaylogo": False,
-                                                        "scrollZoom": False,
-                                                    },
-                                                    style={"height": "760px"},
-                                                ),
-                                                className="visualization-frame control-chart-visualization-frame",
-                                            ),
                                         ),
                                     ],
                                 ),
@@ -2287,8 +2619,59 @@ def register_callbacks(app) -> None:
         Input("variable-selector", "value"),
         Input("control-chart-tests", "value"),
         Input("viewer-tabs", "value"),
+        Input("control-chart-applied-stages", "data"),
+        Input("control-chart-stage-labels", "value"),
         prevent_initial_call=True,
     )(render_control_chart_view)
+
+    app.callback(
+        Output("control-chart-stage-shown", "data"),
+        Output("control-chart-stage-panel", "style"),
+        Output("control-chart-stage-toggle", "aria-expanded"),
+        Input("control-chart-stage-toggle", "n_clicks"),
+        Input("control-chart-graph", "clickData"),
+        State("control-chart-stage-shown", "data"),
+        prevent_initial_call=True,
+    )(toggle_control_chart_stage_panel)
+
+    app.callback(
+        Output("control-chart-pending-stages", "data"),
+        Output("control-chart-new-stage", "value"),
+        Output("control-chart-stage-note", "children"),
+        Input("viewer-state", "data"),
+        Input("control-chart-add-stage", "n_clicks"),
+        Input({"type": _STAGE_ROW_DELETE, "index": ALL}, "n_clicks"),
+        Input({"type": _STAGE_ROW_INPUT, "index": ALL}, "value"),
+        Input("control-chart-clear-stages", "n_clicks"),
+        Input("control-chart-graph", "clickData"),
+        State("control-chart-new-stage", "value"),
+        State("control-chart-pending-stages", "data"),
+        prevent_initial_call=True,
+    )(edit_control_chart_stages)
+
+    app.callback(
+        Output("control-chart-applied-stages", "data"),
+        Output("control-chart-stage-message", "children"),
+        Output("control-chart-recalculate", "disabled"),
+        Input("control-chart-recalculate", "n_clicks"),
+        Input("viewer-state", "data"),
+        Input("control-chart-pending-stages", "data"),
+        State("control-chart-applied-stages", "data"),
+        State("variable-selector", "value"),
+        State("control-chart-tests", "value"),
+        prevent_initial_call=True,
+    )(recalculate_control_chart_stages)
+
+    app.callback(
+        Output("control-chart-stage-rows", "children"),
+        Input("control-chart-pending-stages", "data"),
+    )(update_control_chart_stage_panel)
+
+    app.callback(
+        Output("control-chart-stage-summary", "children"),
+        Input("control-chart-pending-stages", "data"),
+        Input("control-chart-stage-shown", "data"),
+    )(update_control_chart_stage_summary)
 
     app.callback(
         Output("frequency-graph", "figure"),

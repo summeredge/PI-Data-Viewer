@@ -210,9 +210,9 @@ def test_frequency_tab_is_last_and_uses_shared_selector():
         "趋势图",
         "散点矩阵",
         "箱线图",
+        "控制图",
         "概率图",
         "能力分析",
-        "控制图",
         "频谱分析",
     ]
     frequency_tab = tabs.children[6]

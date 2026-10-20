@@ -47,12 +47,12 @@ def test_capability_tab_has_required_controls_and_shared_selector_contract():
         "趋势图",
         "散点矩阵",
         "箱线图",
+        "控制图",
         "概率图",
         "能力分析",
-        "控制图",
         "频谱分析",
     ]
-    capability_tab = tabs.children[4]
+    capability_tab = tabs.children[5]
     component_ids = {
         component.id
         for component in _components(capability_tab)

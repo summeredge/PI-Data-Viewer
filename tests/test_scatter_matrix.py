@@ -54,9 +54,9 @@ def test_scatter_is_in_its_own_tab_and_not_in_trend_tab():
         "趋势图",
         "散点矩阵",
         "箱线图",
+        "控制图",
         "概率图",
         "能力分析",
-        "控制图",
         "频谱分析",
     ]
     assert not any(
